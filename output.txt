@@ -1,0 +1,41 @@
+Output Format
+```
+Simulation Parameters:
+Trace Prefix: <trace_prefix>
+Set Index Bits: <s>
+Associativity: <E>
+Block Bits: <b>
+Block Size (Bytes): <2^b>
+Number of Sets: <2^s>
+Cache Size (KB per core): <cache_size_kb>
+MESI Protocol: Enabled
+Write Policy: Write-back, Write-allocate
+Replacement Policy: LRU
+Bus: Central snooping bus
+
+Core 0 Statistics:
+Total Instructions: <total_instructions>
+Total Reads: <num_reads>
+Total Writes: <num_writes>
+Total Execution Cycles: <total_cycles>
+Idle Cycles: <idle_cycles>
+Cache Misses: <misses>
+Cache Miss Rate: <miss_rate>%
+Cache Evictions: <evictions>
+Writebacks: <writebacks>
+Bus Invalidations: <invalidations>
+Data Traffic (Bytes): <traffic_bytes>
+
+Core 1 Statistics:
+...
+
+Core 2 Statistics:
+...
+
+Core 3 Statistics:
+...
+
+Overall Bus Summary:
+Total Bus Transactions: <total_bus_transactions>
+Total Bus Traffic (Bytes): <total_bus_traffic>
+```
