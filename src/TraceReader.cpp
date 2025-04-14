@@ -53,6 +53,11 @@ bool TraceReader::getNextTrace(TraceEntry& entry) {
         addrStr = addrStr.substr(2);
     }
 
+    // Pad the hex string to 8 digits (32 bits)
+    while (addrStr.length() < 8) {
+        addrStr = "0" + addrStr;
+    }
+
     // Convert hex string to uint32_t
     try {
         entry.addr = std::stoul(addrStr, nullptr, 16);
