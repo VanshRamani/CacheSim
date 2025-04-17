@@ -4,14 +4,18 @@
 #include <cmath>
 
 // CacheLine Implementation
-CacheLine::CacheLine() : state(CacheLineState::INVALID), tag(0), lastUsedCycle(0) {}
+CacheLine::CacheLine() : tag(0), lastUsedCycle(0) {
+    flags.state = 0;     // Invalid state
+    flags.valid = 0;     // Not valid
+}
 
 CacheLineState CacheLine::getState() const {
-    return state;
+    return static_cast<CacheLineState>(flags.state);
 }
 
 void CacheLine::setState(CacheLineState newState) {
-    state = newState;
+    flags.state = static_cast<unsigned>(newState);
+    flags.valid = (newState != CacheLineState::INVALID);
 }
 
 address_t CacheLine::getTag() const {
@@ -23,11 +27,11 @@ void CacheLine::setTag(address_t newTag) {
 }
 
 bool CacheLine::isValid() const {
-    return state != CacheLineState::INVALID;
+    return flags.valid;
 }
 
 bool CacheLine::isDirty() const {
-    return state == CacheLineState::MODIFIED;
+    return flags.state == static_cast<unsigned>(CacheLineState::MODIFIED);
 }
 
 cycle_t CacheLine::getLastUsedCycle() const {
@@ -38,18 +42,28 @@ void CacheLine::updateLRU(cycle_t currentCycle) {
     lastUsedCycle = currentCycle;
 }
 
+
 // CacheSet Implementation
 CacheSet::CacheSet(int E) : associativity(E) {
     lines.resize(E);
+    tagToLineIndex.reserve(E);  // Reserve space for max entries
 }
 
 CacheLine* CacheSet::findLine(address_t tag) {
-    for (auto& line : lines) {
-        if (line.isValid() && line.getTag() == tag) {
-            return &line;
-        }
+    // First check the lookup table
+    auto it = tagToLineIndex.find(tag);
+    if (it != tagToLineIndex.end() && lines[it->second].isValid()) {
+        return &lines[it->second];
     }
     return nullptr;
+}
+
+void CacheSet::updateLookupTable(address_t tag, int index) {
+    tagToLineIndex[tag] = index;
+}
+
+void CacheSet::removeLookupEntry(address_t tag) {
+    tagToLineIndex.erase(tag);
 }
 
 int CacheSet::findLRULine() const {
@@ -86,6 +100,13 @@ Cache::Cache(int id, int s, int E, int b, Bus* bus)
       blocked(false),
       readyCycle(0) {
     
+    // Precompute address manipulation masks and shifts
+    tagMask = ~((1ULL << (indexBits + blockOffsetBits)) - 1);
+    tagShift = indexBits + blockOffsetBits;
+    indexMask = ((1ULL << indexBits) - 1) << blockOffsetBits;
+    indexShift = blockOffsetBits;
+    offsetMask = (1ULL << blockOffsetBits) - 1;
+
     // Initialize sets
     sets.reserve(numSets);
     for (int i = 0; i < numSets; i++) {
@@ -168,6 +189,8 @@ void Cache::allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState n
     
     // Handle writeback if victim is dirty
     if (victimLine.isValid()) {
+        // Remove old tag from lookup table
+        sets[setIndex].removeLookupEntry(victimLine.getTag());
         // Eviction counter
         stats.evictions++;
         
@@ -189,6 +212,9 @@ void Cache::allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState n
     victimLine.setTag(tag);
     victimLine.setState(newState);
     victimLine.updateLRU(currentCycle);
+    
+    // Update lookup table with new mapping
+    sets[setIndex].updateLookupTable(tag, victimIndex);
 }
 
 bool Cache::snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr) {
@@ -254,6 +280,7 @@ void Cache::notifyTransactionComplete(cycle_t currentCycle, address_t addr, Cach
 }
 
 // Address manipulation helpers
+/*
 address_t Cache::extractTag(address_t addr) const {
     return addr >> (indexBits + blockOffsetBits);
 }
@@ -264,6 +291,19 @@ int Cache::extractIndex(address_t addr) const {
 
 int Cache::extractOffset(address_t addr) const {
     return addr & ((1 << blockOffsetBits) - 1);
+}
+*/
+
+address_t Cache::extractTag(address_t addr) const {
+    return (addr & tagMask) >> tagShift;
+}
+
+int Cache::extractIndex(address_t addr) const {
+    return (addr & indexMask) >> indexShift;
+}
+
+int Cache::extractOffset(address_t addr) const {
+    return addr & offsetMask;
 }
 
 // Getters and setters
