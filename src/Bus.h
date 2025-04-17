@@ -30,6 +30,8 @@ private:
     cycle_t busyUntilCycle;            // Cycle when bus will be free
     int roundRobinArbiter;             // Simple arbitration state
     
+    const int memoryLatency = 100;  // Memory access latency in cycles
+
     int blockSizeBytes;                // Size of cache block in bytes
     
     // Statistics
@@ -40,6 +42,8 @@ private:
     bool broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction);
     cycle_t calculateCompletionTime(cycle_t currentCycle, const BusTransaction& transaction, bool suppliedByCache);
     void notifyRequester(cycle_t currentCycle, const BusTransaction& transaction);
+
+    size_t findHighestPriorityRequest() const; // Find the highest priority request in the queue
 
 public:
     // Constructor takes block size in bytes
