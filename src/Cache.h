@@ -3,6 +3,8 @@
 
 #include <vector>
 #include "Types.h"
+#include <unordered_map>
+#include <deque>
 
 // Forward declaration of Bus class to avoid circular dependencies
 class Bus;
@@ -10,22 +12,29 @@ class Bus;
 // Cache Line - represents a single cache line
 class CacheLine {
 private:
-    CacheLineState state;
     address_t tag;
-    cycle_t lastUsedCycle; // For LRU replacement
+    cycle_t lastUsedCycle;
+    struct {
+        unsigned state : 2;  // MESI state (2 bits: 00=I, 01=S, 10=E, 11=M)
+        unsigned valid : 1;  // Valid bit
+    } flags;
 
 public:
-    CacheLine();
+    CacheLine();  // Declaration only
     
+    // State management
     CacheLineState getState() const;
     void setState(CacheLineState newState);
     
+    // Tag management
     address_t getTag() const;
     void setTag(address_t newTag);
     
+    // Status checks
     bool isValid() const;
     bool isDirty() const;
     
+    // LRU management
     cycle_t getLastUsedCycle() const;
     void updateLRU(cycle_t currentCycle);
 };
@@ -35,6 +44,7 @@ class CacheSet {
 private:
     std::vector<CacheLine> lines;
     int associativity;
+    std::unordered_map<address_t, int> tagToLineIndex;  // New lookup table
 
 public:
     CacheSet(int E);
@@ -51,6 +61,9 @@ public:
     
     // Get number of lines in the set
     int getAssociativity() const;
+
+    void updateLookupTable(address_t tag, int index);
+    void removeLookupEntry(address_t tag);
 };
 
 // Cache structure for a single core
@@ -63,6 +76,10 @@ private:
     int blockSize;          // Size of each block in bytes (B = 2^b)
     int indexBits;          // Number of set index bits (s)
     int blockOffsetBits;    // Number of block offset bits (b)
+
+    void prefetch(cycle_t cycle, address_t addr);
+    bool shouldPrefetch(address_t currentAddr, address_t nextAddr) const;
+
     
     // Cache structure
     std::vector<CacheSet> sets;
@@ -73,6 +90,13 @@ private:
     // Cache state
     bool blocked;           // Is cache waiting for a memory transaction?
     cycle_t readyCycle;     // Cycle when cache will be ready after miss handling
+
+    // Address manipulation masks and shifts
+    address_t tagMask;
+    int tagShift;
+    address_t indexMask;
+    int indexShift;
+    address_t offsetMask;
     
     // Statistics
     struct {
@@ -82,6 +106,8 @@ private:
         uint64_t evictions;             // Number of cache line evictions
         uint64_t writebacks;            // Number of writebacks to memory
         uint64_t invalidationsReceived; // Number of invalidations received from bus
+        uint64_t prefetchRequests;
+        uint64_t usefulPrefetches;
     } stats;
     
     // Address manipulation helpers
@@ -107,6 +133,8 @@ public:
     // Find a block in the cache
     CacheLine* findBlock(address_t addr);
     
+    int getId() const { return id; }  // Return the cache/core ID
+
     // Update state of a block
     void updateState(address_t addr, CacheLineState newState);
     
