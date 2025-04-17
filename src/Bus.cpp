@@ -35,7 +35,41 @@ size_t Bus::getQueueSize() const {
     return requestQueue.size();
 }
 
+size_t Bus::findHighestPriorityRequest() const {
+    size_t bestIndex = 0;
+    BusRequestType highestPriority = BusRequestType::None;
+    
+    for (size_t i = 0; i < requestQueue.size(); i++) {
+        if (static_cast<int>(requestQueue[i].type) > static_cast<int>(highestPriority)) {
+            highestPriority = requestQueue[i].type;
+            bestIndex = i;
+        }
+    }
+    
+    return bestIndex;
+}
+
 void Bus::tick(cycle_t currentCycle) {
+    if (!busy && !requestQueue.empty()) {
+        // Find highest priority request
+        size_t bestIndex = findHighestPriorityRequest();
+        
+        // Process that request
+        currentTransaction = requestQueue[bestIndex];
+        requestQueue.erase(requestQueue.begin() + bestIndex);
+        
+        // Set bus state
+        busy = true;
+        busyUntilCycle = currentCycle + memoryLatency;
+        totalBusTransactions++;
+        
+        // Broadcast to all caches except requester
+        for (Cache* cache : caches) {
+            if (cache->getId() != currentTransaction.requesterId) {
+                cache->snoop(currentCycle, currentTransaction.type, currentTransaction.address);
+            }
+        }
+    }
     // Process one cycle of bus activity
     // This includes:
     // 1. Completing any ongoing transaction if it's done
