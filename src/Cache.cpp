@@ -114,7 +114,7 @@ Cache::Cache(int id, int s, int E, int b, Bus* bus)
     }
     
     // Initialize statistics
-    stats = {0, 0, 0, 0, 0, 0};
+    stats = {0, 0, 0, 0, 0, 0, 0, 0};  // Added an extra zero for usefulPrefetches
 }
 
 bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
@@ -164,6 +164,10 @@ bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
 }
 
 void Cache::handleMiss(cycle_t currentCycle, MemOperation op, address_t addr, address_t tag, int setIndex) {
+    // Mark unused parameters to avoid warnings
+    (void)tag;        // Explicitly mark as unused
+    (void)setIndex;   // Explicitly mark as unused
+    
     // Block cache while handling miss
     blocked = true;
     
@@ -218,6 +222,9 @@ void Cache::allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState n
 }
 
 bool Cache::snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr) {
+    // Mark parameter as unused to avoid compiler warning
+    (void)currentCycle;  // Explicitly mark as unused
+    
     // Find if we have this block
     CacheLine* line = findBlock(addr);
     
@@ -235,21 +242,36 @@ bool Cache::snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr) {
             // Need to supply data and change to Shared
             line->setState(CacheLineState::SHARED);
             responded = true;
+            
+            // For a modified line, we need to write back to memory as well
+            // In real hardware, the data would be supplied directly to both the
+            // memory and the requesting cache simultaneously
         } else if (line->getState() == CacheLineState::EXCLUSIVE) {
-            // Change to Shared (memory will supply data)
+            // Change to Shared (data can be supplied by memory)
             line->setState(CacheLineState::SHARED);
+            // No need to respond as memory will supply the data
         }
         // Shared state remains Shared, no action needed
     } else if (busReq == BusRequestType::BusRdX) {
         // Another cache wants exclusive access
+        if (line->getState() == CacheLineState::MODIFIED) {
+            // We have to write back to memory first, then invalidate
+            // Mark that we responded, but data will come from memory to requester
+            responded = true;
+            // Stats for writeback are handled by the bus in this case
+        }
+        
+        // Only invalidate if the line is valid (not already invalidated)
+        // This prevents double-counting invalidations
         if (line->getState() != CacheLineState::INVALID) {
-            // Need to invalidate our copy
-            if (line->getState() == CacheLineState::MODIFIED) {
-                // If in M state, we need to supply data
-                responded = true;
-            }
+            // Only count invalidation if state actually changes
+            CacheLineState oldState = line->getState();
             line->setState(CacheLineState::INVALID);
-            stats.invalidationsReceived++;
+            
+            // Only increment counter if this was an actual state change from valid to invalid
+            if (oldState != CacheLineState::INVALID) {
+                stats.invalidationsReceived++;
+            }
         }
     }
     

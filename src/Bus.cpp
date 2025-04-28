@@ -127,7 +127,12 @@ bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction
             if (responded) {
                 suppliedByCache = true;
                 // In real hardware, we would break here since only one cache can respond,
-                // but for simulation correctness, we want to make sure all caches update their state
+                // but for simulation correctness, we want to ensure all caches update their state
+                // However, for BusRdX, we can stop after the first cache with the block in M state responds
+                if (transaction.type == BusRequestType::BusRdX) {
+                    // Only one cache can have the block in M state, so we can break
+                    break;
+                }
             }
         }
     }
@@ -139,16 +144,26 @@ cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction&
     cycle_t latency = 0;
     
     // Calculate latency based on transaction type and source
-    if (transaction.type == BusRequestType::BusRd || 
-        transaction.type == BusRequestType::BusRdX) {
+    if (transaction.type == BusRequestType::BusRd) {
         if (suppliedByCache) {
-            // Cache-to-cache transfer: 2N cycles (N words per block)
+            // Cache-to-cache transfer: 2N cycles (N words per block) + memory update
             int wordsPerBlock = blockSizeBytes / 4; // 4 bytes per word
             latency = 2 * wordsPerBlock;
+            
+            // We still need to update memory if the data was in M state in another cache
+            // Add a small latency for this, but don't add the full memory latency
+            // as the cache-to-cache transfer happens concurrently
+            latency += 10;
         } else {
             // Memory access: 100 cycles
             latency = 100;
         }
+    } else if (transaction.type == BusRequestType::BusRdX) {
+        // For BusRdX, we always access memory because:
+        // 1. If no cache has the block, we fetch from memory
+        // 2. If another cache has it in M, it must write back first
+        // 3. If caches have it in S/E, they invalidate but data comes from memory
+        latency = 100;
     } else if (transaction.type == BusRequestType::WriteBack) {
         // Writeback to memory: 100 cycles
         latency = 100;
@@ -158,17 +173,47 @@ cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction&
 }
 
 void Bus::notifyRequester(cycle_t currentCycle, const BusTransaction& transaction) {
+    // First, check if the transaction requires writeback before proceeding
+    bool needsWriteback = false;
+    Cache* ownerCache = nullptr;
+    
+    // Check if any cache has the block in modified state
+    for (size_t i = 0; i < caches.size(); i++) {
+        if (static_cast<int>(i) != transaction.requesterId) {
+            CacheLine* line = caches[i]->findBlock(transaction.address);
+            if (line != nullptr && line->getState() == CacheLineState::MODIFIED) {
+                needsWriteback = true;
+                ownerCache = caches[i];
+                break;
+            }
+        }
+    }
+    
+    // Handle writeback if necessary
+    if (needsWriteback && ownerCache) {
+        // Force writeback to memory first
+        // No need to create a new transaction, just add memory access delay
+        currentCycle += 100; // Memory writeback latency
+    }
+    
     // Determine the appropriate new state for the block
     CacheLineState newState;
+    
+    // Use a local copy of servedByCache
+    bool isServedByCache = transaction.servedByCache;
     
     if (transaction.type == BusRequestType::BusRd) {
         // If another cache has the block, it goes to Shared
         // Otherwise, it goes to Exclusive
-        newState = transaction.servedByCache ? 
+        newState = isServedByCache ? 
             CacheLineState::SHARED : CacheLineState::EXCLUSIVE;
     } else if (transaction.type == BusRequestType::BusRdX) {
         // Always goes to Modified
         newState = CacheLineState::MODIFIED;
+        
+        // For BusRdX, we cannot do direct cache-to-cache transfer
+        // Data must be written back to memory first if it was modified
+        isServedByCache = false;
     } else {
         // For WriteBack, don't need to notify requester about a new state
         return;
