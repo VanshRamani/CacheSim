@@ -12,7 +12,9 @@ Core::Core(int id, Cache* cache, const std::string& tracePath) :
     idleCycles(0),
     instructionCount(0),
     readCount(0),
-    writeCount(0) {}
+    writeCount(0) {
+    std::cout << "DEBUG: Core " << id << " initialized with trace file: " << tracePath << std::endl;
+}
 
 Core::~Core() {
     delete traceReader;
@@ -29,6 +31,7 @@ void Core::tick(cycle_t currentCycle) {
         if (!cache->isBlocked() && currentCycle >= cache->getReadyCycle()) {
             // Cache has completed the operation, unblock core
             blocked = false;
+            std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << id << " unblocked" << std::endl;
         } else {
             // Still waiting for cache
             return;
@@ -48,22 +51,43 @@ void Core::tick(cycle_t currentCycle) {
             writeCount++;
         }
 
+        // Every 1000 instructions, print debug info
+        if (instructionCount % 1000 == 0) {
+            std::cout << "DEBUG: Core " << id << " executed " << instructionCount 
+                      << " instructions, " << readCount << " reads, " 
+                      << writeCount << " writes" << std::endl;
+        }
+
         // Try to access cache
         bool hit = cache->access(currentCycle, entry.op, entry.addr);
         
         if (!hit) {
             // Cache miss - block the core
             blocked = true;
+            std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << id 
+                      << " blocked due to cache miss, addr: 0x" 
+                      << std::hex << entry.addr << std::dec 
+                      << ", op: " << (entry.op == MemOperation::READ ? "READ" : "WRITE") 
+                      << std::endl;
         }
     } else {
         // End of trace - mark core as finished
         finished = true;
+        std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << id 
+                  << " finished execution after " << instructionCount 
+                  << " instructions" << std::endl;
     }
 }
 
 void Core::incrementIdleCycle() {
     if (!finished) {
         idleCycles++;
+        
+        // Debug counter for idle cycles
+        if (idleCycles % 1000 == 0) {
+            std::cout << "DEBUG: Core " << id << " idle cycle count: " 
+                      << idleCycles << std::endl;
+        }
     }
 }
 
@@ -77,6 +101,10 @@ bool Core::isBlocked() const {
 
 void Core::setTotalCycles(cycle_t cycles) {
     totalCycles = cycles;
+    std::cout << "DEBUG: Core " << id << " final stats - Total cycles: " 
+              << totalCycles << ", Idle cycles: " << idleCycles 
+              << ", Instructions: " << instructionCount 
+              << ", Execution cycles: " << (totalCycles - idleCycles) << std::endl;
 }
 
 cycle_t Core::getTotalCycles() const {
@@ -97,4 +125,8 @@ uint64_t Core::getReadCount() const {
 
 uint64_t Core::getWriteCount() const {
     return writeCount;
+}
+
+int Core::getId() const {
+    return id;
 } 

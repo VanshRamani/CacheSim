@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+#include <cassert>
 
 Simulator::Simulator(const std::string& traceBase, int s, int E, int b) :
     currentCycle(0),
@@ -21,6 +22,13 @@ Simulator::Simulator(const std::string& traceBase, int s, int E, int b) :
     // Allocate space for cores and caches
     cores.reserve(numCores);
     caches.reserve(numCores);
+    
+    std::cout << "DEBUG: Simulator initialized with parameters: " << std::endl;
+    std::cout << "  Index bits (s): " << indexBits << std::endl;
+    std::cout << "  Associativity (E): " << associativity << std::endl;
+    std::cout << "  Block offset bits (b): " << blockOffsetBits << std::endl;
+    std::cout << "  Block size: " << blockSize << " bytes" << std::endl;
+    std::cout << "  Cache size per core: " << (cacheSize / 1024.0) << " KB" << std::endl;
 }
 
 void Simulator::initialize() {
@@ -35,20 +43,44 @@ void Simulator::initialize() {
         std::string tracePath = traceBaseName + "_proc" + std::to_string(i) + ".trace";
         cores.emplace_back(i, &caches[i], tracePath);
     }
+    
+    std::cout << "DEBUG: Initialized " << numCores << " cores and caches." << std::endl;
 }
 
 void Simulator::run() {
     // Initialize the simulation components
     initialize();
     
+    std::cout << "DEBUG: Starting simulation..." << std::endl;
+    
     // Run until all cores are finished
     while (!checkFinished()) {
         tick();
+        
+        // Print debug info every 1000 cycles
+        if (currentCycle % 1000 == 0) {
+            std::cout << "DEBUG: Cycle " << currentCycle << ": ";
+            for (int i = 0; i < numCores; i++) {
+                std::cout << "Core " << i << " " 
+                          << (cores[i].isFinished() ? "finished" : 
+                             (cores[i].isBlocked() ? "blocked" : "running"))
+                          << ", ";
+            }
+            std::cout << "Bus queue size: " << bus.getQueueSize() << std::endl;
+        }
     }
     
-    // Update total cycles for all cores
+    std::cout << "DEBUG: Simulation completed at cycle " << currentCycle << std::endl;
+    
+    // Update total cycles for each core
+    // This is the cycle when the last core finished
     for (Core& core : cores) {
-        core.setTotalCycles(currentCycle);
+        // The individual core's execution cycles are:
+        // totalCycles = simulationCycles - idleCycles
+        // idleCycles are counted separately in Core::incrementIdleCycle
+        std::cout << "DEBUG: Core " << core.getId() << " execution cycles: " 
+                  << (currentCycle - core.getIdleCycles()) << std::endl;
+        core.setTotalCycles(currentCycle - core.getIdleCycles());
     }
 }
 
@@ -86,12 +118,19 @@ void Simulator::tick() {
 }
 
 bool Simulator::checkFinished() {
+    bool allFinished = true;
     for (const Core& core : cores) {
         if (!core.isFinished()) {
-            return false;
+            allFinished = false;
+            break;
         }
     }
-    return true;
+    
+    if (allFinished && currentCycle % 100 == 0) {
+        std::cout << "DEBUG: All cores finished at cycle " << currentCycle << std::endl;
+    }
+    
+    return allFinished;
 }
 
 void Simulator::printStats(const std::string& outfile) {
@@ -119,8 +158,9 @@ void Simulator::printStats(const std::string& outfile) {
     *out << "Cache Size (KB per core): " << (cacheSize / 1024.0) << std::endl;
     *out << "MESI Protocol: Enabled" << std::endl;
     *out << "Write Policy: Write-back, Write-allocate" << std::endl;
-    *out << "Replacement Policy: LRU" << std::endl;
-    *out << "Bus: Central snooping bus" << std::endl;
+    *out << "Replacement Policy: LRU (invalid lines replaced first)" << std::endl;
+    *out << "Bus Arbitration: Priority-based with Round-Robin (BusRdX > BusRd > WriteBack)" << std::endl;
+    *out << "Memory Latency: 100 cycles" << std::endl;
     *out << std::endl;
     
     // Print per-core statistics

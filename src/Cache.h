@@ -5,6 +5,7 @@
 #include "Types.h"
 #include <unordered_map>
 #include <deque>
+#include <string>
 
 // Forward declaration of Bus class to avoid circular dependencies
 class Bus;
@@ -37,6 +38,9 @@ public:
     // LRU management
     cycle_t getLastUsedCycle() const;
     void updateLRU(cycle_t currentCycle);
+    
+    // Debug helper
+    std::string cacheLineStateToString(CacheLineState state) const;
 };
 
 // Cache Set - represents a set of cache lines with the same index
@@ -120,6 +124,10 @@ private:
     
     // Block allocation
     void allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState newState);
+    
+    // Debug helpers
+    std::string getBusRequestTypeString(BusRequestType type) const;
+    std::string getCacheLineStateString(CacheLineState state) const;
     
 public:
     Cache(int id, int s, int E, int b, Bus* bus);
