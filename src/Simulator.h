@@ -1,3 +1,4 @@
+
 #ifndef SIMULATOR_H
 #define SIMULATOR_H
 
@@ -29,6 +30,9 @@ private:
     int numSets;          // S = 2^s
     int cacheSize;        // Size in bytes = S * E * B
     
+    // Debug flag
+    static bool debugEnabled;
+    
     // Helper methods
     void initialize();
     void tick();
@@ -53,6 +57,13 @@ public:
     
     // Get number of cycles executed
     cycle_t getCurrentCycle() const;
+    
+    // Debug control
+    static void setDebugEnabled(bool enabled);
+    static bool isDebugEnabled();
 };
+
+// Macro for debug output
+#define DEBUG_PRINT(x) if (Simulator::isDebugEnabled()) { std::cout << "DEBUG: " << x << std::endl; }
 
 #endif // SIMULATOR_H 

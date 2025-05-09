@@ -1,5 +1,6 @@
 #include "Cache.h"
 #include "Bus.h"
+#include "Simulator.h"
 #include <iostream>
 #include <cmath>
 
@@ -14,6 +15,14 @@ CacheLineState CacheLine::getState() const {
 }
 
 void CacheLine::setState(CacheLineState newState) {
+    CacheLineState oldState = getState();
+    
+    if (oldState != newState) {
+        DEBUG_PRINT("Cache line state transition: " 
+                  << cacheLineStateToString(oldState) << " -> " 
+                  << cacheLineStateToString(newState));
+    }
+    
     flags.state = static_cast<unsigned>(newState);
     flags.valid = (newState != CacheLineState::INVALID);
 }
@@ -31,7 +40,7 @@ bool CacheLine::isValid() const {
 }
 
 bool CacheLine::isDirty() const {
-    return flags.state == static_cast<unsigned>(CacheLineState::MODIFIED);
+    return getState() == CacheLineState::MODIFIED;
 }
 
 cycle_t CacheLine::getLastUsedCycle() const {
@@ -40,6 +49,16 @@ cycle_t CacheLine::getLastUsedCycle() const {
 
 void CacheLine::updateLRU(cycle_t currentCycle) {
     lastUsedCycle = currentCycle;
+}
+
+std::string CacheLine::cacheLineStateToString(CacheLineState state) const {
+    switch (state) {
+        case CacheLineState::MODIFIED: return "Modified";
+        case CacheLineState::EXCLUSIVE: return "Exclusive";
+        case CacheLineState::SHARED: return "Shared";
+        case CacheLineState::INVALID: return "Invalid";
+        default: return "Unknown";
+    }
 }
 
 
@@ -67,6 +86,14 @@ void CacheSet::removeLookupEntry(address_t tag) {
 }
 
 int CacheSet::findLRULine() const {
+    // First, look for any invalid lines - these should be replaced first
+    for (int i = 0; i < associativity; i++) {
+        if (!lines[i].isValid()) {
+            return i;
+        }
+    }
+
+    // If all lines are valid, find the least recently used one
     int lruIndex = 0;
     cycle_t oldestCycle = lines[0].getLastUsedCycle();
 
@@ -113,8 +140,8 @@ Cache::Cache(int id, int s, int E, int b, Bus* bus)
         sets.emplace_back(associativity);
     }
     
-    // Initialize statistics
-    stats = {0, 0, 0, 0, 0, 0, 0, 0};  // Added an extra zero for usefulPrefetches
+    // Initialize all statistics to zero
+    stats = {0};  // Zero-initialize all fields
 }
 
 bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
@@ -125,12 +152,23 @@ bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
     address_t tag = extractTag(addr);
     int setIndex = extractIndex(addr);
     
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " access, op: " << (op == MemOperation::READ ? "READ" : "WRITE") 
+                << ", addr: 0x" << std::hex << addr << std::dec 
+                << " (tag: 0x" << std::hex << tag << std::dec 
+                << ", set: " << setIndex << ")");
+    
     // Look for the block in the cache
     CacheLine* line = sets[setIndex].findLine(tag);
     
     if (line != nullptr) {
         // Cache hit
         stats.hits++;
+        
+        CacheLineState oldState = line->getState();
+        
+        DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                    << " HIT, line state: " << getCacheLineStateString(oldState));
         
         // Update LRU status
         line->updateLRU(currentCycle);
@@ -140,22 +178,39 @@ bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
             // Read hit - no state change needed
             return true;
         } else { // Write operation
-            if (line->getState() == CacheLineState::MODIFIED) {
+            if (oldState == CacheLineState::MODIFIED) {
                 // Already in M state - no change needed
                 return true;
-            } else if (line->getState() == CacheLineState::EXCLUSIVE) {
+            } else if (oldState == CacheLineState::EXCLUSIVE) {
                 // Exclusive -> Modified
+                DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                            << " transition E->M on write hit");
                 line->setState(CacheLineState::MODIFIED);
                 return true;
-            } else { // Shared state
-                // Need to gain exclusive ownership - issue BusRdX
-                handleMiss(currentCycle, op, addr, tag, setIndex);
+            } else if (oldState == CacheLineState::SHARED) {
+                // Shared -> Need to get exclusive ownership via BusRdX
+                // We don't change state here - that will happen when the transaction completes
+                DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                            << " write to shared line, need to invalidate other copies");
+                
+                // This is a write to a shared line, not a miss
+                // Issue BusRdX to invalidate other copies but don't count it as a miss
+                blocked = true;
+                bus->pushRequest(id, BusRequestType::BusRdX, addr, currentCycle);
                 return false; // Block the core
+            } else {
+                // Invalid state - should not happen on a hit
+                std::cerr << "ERROR: Cache " << id << " hit on invalid line, addr: 0x" 
+                          << std::hex << addr << std::dec << std::endl;
+                return false;
             }
         }
     } else {
         // Cache miss
         stats.misses++;
+        
+        DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                    << " MISS, addr: 0x" << std::hex << addr << std::dec);
         
         // Handle miss - initiate memory transaction
         handleMiss(currentCycle, op, addr, tag, setIndex);
@@ -164,10 +219,6 @@ bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
 }
 
 void Cache::handleMiss(cycle_t currentCycle, MemOperation op, address_t addr, address_t tag, int setIndex) {
-    // Mark unused parameters to avoid warnings
-    (void)tag;        // Explicitly mark as unused
-    (void)setIndex;   // Explicitly mark as unused
-    
     // Block cache while handling miss
     blocked = true;
     
@@ -178,6 +229,10 @@ void Cache::handleMiss(cycle_t currentCycle, MemOperation op, address_t addr, ad
     } else { // Write
         requestType = BusRequestType::BusRdX;
     }
+    
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " handling miss, issuing " << getBusRequestTypeString(requestType) 
+                << " for addr: 0x" << std::hex << addr << std::dec);
     
     // Issue request to the bus
     bus->pushRequest(id, requestType, addr, currentCycle);
@@ -191,21 +246,45 @@ void Cache::allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState n
     int victimIndex = sets[setIndex].findLRULine();
     CacheLine& victimLine = sets[setIndex].getLine(victimIndex);
     
-    // Handle writeback if victim is dirty
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " allocating block, addr: 0x" << std::hex << addr << std::dec 
+                << ", state: " << getCacheLineStateString(newState));
+    
+    // Check if the line we're about to replace is already the same address/tag
+    // If so, we just need to update its state
+    if (victimLine.isValid() && victimLine.getTag() == tag) {
+        DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                    << " updating existing line for tag: 0x" << std::hex << tag << std::dec 
+                    << ", old state: " << getCacheLineStateString(victimLine.getState())
+                    << ", new state: " << getCacheLineStateString(newState));
+        
+        victimLine.setState(newState);
+        victimLine.updateLRU(currentCycle);
+        return;
+    }
+    
+    // Handle writeback if victim is dirty and valid
     if (victimLine.isValid()) {
         // Remove old tag from lookup table
-        sets[setIndex].removeLookupEntry(victimLine.getTag());
+        address_t oldTag = victimLine.getTag();
+        sets[setIndex].removeLookupEntry(oldTag);
         // Eviction counter
         stats.evictions++;
+        
+        DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                    << " evicting line, tag: 0x" << std::hex << oldTag << std::dec 
+                    << ", state: " << getCacheLineStateString(victimLine.getState()));
         
         if (victimLine.isDirty()) {
             // Need to write back to memory
             stats.writebacks++;
             
             // Reconstruct victim address (tag + index + 0s for offset)
-            address_t victimTag = victimLine.getTag();
-            address_t victimAddr = (victimTag << (indexBits + blockOffsetBits)) | 
+            address_t victimAddr = (oldTag << (indexBits + blockOffsetBits)) | 
                                   (setIndex << blockOffsetBits);
+            
+            DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                        << " initiating writeback, addr: 0x" << std::hex << victimAddr << std::dec);
             
             // Issue writeback transaction to bus
             bus->pushRequest(id, BusRequestType::WriteBack, victimAddr, currentCycle);
@@ -222,11 +301,13 @@ void Cache::allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState n
 }
 
 bool Cache::snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr) {
-    // Mark parameter as unused to avoid compiler warning
-    (void)currentCycle;  // Explicitly mark as unused
-    
     // Find if we have this block
     CacheLine* line = findBlock(addr);
+    
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " received snoop, req: " << getBusRequestTypeString(busReq) 
+                << ", addr: 0x" << std::hex << addr << std::dec 
+                << ", have block: " << (line != nullptr ? "yes" : "no"));
     
     // If we don't have the block, nothing to do
     if (line == nullptr) {
@@ -234,44 +315,59 @@ bool Cache::snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr) {
     }
     
     bool responded = false;
+    CacheLineState oldState = line->getState();
     
     // Handle based on request type and current state
     if (busReq == BusRequestType::BusRd) {
         // Another cache wants to read
-        if (line->getState() == CacheLineState::MODIFIED) {
+        if (oldState == CacheLineState::MODIFIED) {
             // Need to supply data and change to Shared
-            line->setState(CacheLineState::SHARED);
-            responded = true;
+            DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                        << " serving BusRd from M state, transitioning to S");
             
-            // For a modified line, we need to write back to memory as well
-            // In real hardware, the data would be supplied directly to both the
-            // memory and the requesting cache simultaneously
-        } else if (line->getState() == CacheLineState::EXCLUSIVE) {
-            // Change to Shared (data can be supplied by memory)
+            // First, need to update memory since our copy was modified
+            // This is done implicitly in the simulator - data is transferred to the requestor
+            // and memory is updated as part of the transaction
+            
             line->setState(CacheLineState::SHARED);
-            // No need to respond as memory will supply the data
+            responded = true; // Data supplied from this cache
+        } else if (oldState == CacheLineState::EXCLUSIVE) {
+            // When in Exclusive state, we have the only valid copy - need to respond
+            // and supply data (memory would be up to date, but cache-to-cache transfer is faster)
+            DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                        << " serving BusRd from E state, transitioning to S");
+            
+            line->setState(CacheLineState::SHARED);
+            responded = true; // Data supplied from this cache
+        } else if (oldState == CacheLineState::SHARED) {
+            // Shared state remains Shared - we don't supply data (comes from memory)
+            DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id
+                        << " responding to BusRd, remaining in S state (no data transfer)");
+            // We don't set responded = true here, as shared caches don't supply data
+            // A cache in Shared state doesn't need to respond as memory is up-to-date
         }
-        // Shared state remains Shared, no action needed
     } else if (busReq == BusRequestType::BusRdX) {
         // Another cache wants exclusive access
-        if (line->getState() == CacheLineState::MODIFIED) {
-            // We have to write back to memory first, then invalidate
-            // Mark that we responded, but data will come from memory to requester
-            responded = true;
-            // Stats for writeback are handled by the bus in this case
-        }
-        
-        // Only invalidate if the line is valid (not already invalidated)
-        // This prevents double-counting invalidations
-        if (line->getState() != CacheLineState::INVALID) {
-            // Only count invalidation if state actually changes
-            CacheLineState oldState = line->getState();
-            line->setState(CacheLineState::INVALID);
-            
-            // Only increment counter if this was an actual state change from valid to invalid
-            if (oldState != CacheLineState::INVALID) {
-                stats.invalidationsReceived++;
+        if (oldState != CacheLineState::INVALID) {
+            // Need to invalidate our copy
+            if (oldState == CacheLineState::MODIFIED) {
+                // If in M state, we need to supply data to the requester
+                // and ensure memory is updated (implicitly handled in the transaction)
+                DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                          << " serving BusRdX from M state, invalidating");
+                responded = true;
+            } else {
+                DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                          << " invalidating line due to BusRdX (was " 
+                          << getCacheLineStateString(oldState) << ")");
             }
+            
+            // Update LRU information before invalidating
+            line->updateLRU(currentCycle);
+            
+            // Invalidate the line
+            line->setState(CacheLineState::INVALID);
+            stats.invalidationsReceived++;
         }
     }
     
@@ -293,12 +389,40 @@ void Cache::updateState(address_t addr, CacheLineState newState) {
 }
 
 void Cache::notifyTransactionComplete(cycle_t currentCycle, address_t addr, CacheLineState newState) {
-    // Allocate the block with the appropriate state
-    allocateBlock(currentCycle, addr, newState);
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " transaction complete for addr: 0x" << std::hex << addr << std::dec 
+                << ", new state: " << getCacheLineStateString(newState));
+    
+    // Check if this is a normal memory transaction (BusRd/BusRdX) or a writeback
+    if (newState == CacheLineState::INVALID) {
+        // This is a writeback completion - no need to allocate a block
+        // The block was already evicted, so we just need to unblock the cache
+        DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                    << " writeback complete, no state change needed");
+    } else {
+        // For BusRd and BusRdX, we need to allocate/update a block
+        
+        // First check if we already have this block in the cache
+        // This handles the case of write to a shared line (S->M transition)
+        CacheLine* line = findBlock(addr);
+        if (line != nullptr) {
+            // We already have this block, just update its state
+            DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                        << " updating existing line state to " << getCacheLineStateString(newState));
+            line->setState(newState);
+            line->updateLRU(currentCycle);
+        } else {
+            // Need to allocate a new block
+            allocateBlock(currentCycle, addr, newState);
+        }
+    }
     
     // Unblock the cache
     blocked = false;
     readyCycle = currentCycle + 1; // Ready from next cycle
+    
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " unblocked, ready from cycle " << readyCycle);
 }
 
 // Address manipulation helpers
@@ -390,4 +514,24 @@ uint64_t Cache::getWritebacks() const {
 
 uint64_t Cache::getInvalidationsReceived() const {
     return stats.invalidationsReceived;
+}
+
+std::string Cache::getBusRequestTypeString(BusRequestType type) const {
+    switch (type) {
+        case BusRequestType::BusRd: return "BusRd";
+        case BusRequestType::BusRdX: return "BusRdX";
+        case BusRequestType::WriteBack: return "WriteBack";
+        case BusRequestType::None: return "None";
+        default: return "Unknown";
+    }
+}
+
+std::string Cache::getCacheLineStateString(CacheLineState state) const {
+    switch (state) {
+        case CacheLineState::MODIFIED: return "Modified";
+        case CacheLineState::EXCLUSIVE: return "Exclusive";
+        case CacheLineState::SHARED: return "Shared";
+        case CacheLineState::INVALID: return "Invalid";
+        default: return "Unknown";
+    }
 } 

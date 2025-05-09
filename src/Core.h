@@ -38,6 +38,7 @@ public:
     // State getters
     bool isFinished() const;
     bool isBlocked() const;
+    int getId() const;
     
     // Set total cycles
     void setTotalCycles(cycle_t cycles);

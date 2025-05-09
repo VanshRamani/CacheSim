@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <deque>
+#include <string>
 #include "Types.h"
 
 // Forward declaration of Cache class to avoid circular dependencies
@@ -44,6 +45,10 @@ private:
     void notifyRequester(cycle_t currentCycle, const BusTransaction& transaction);
 
     size_t findHighestPriorityRequest() const; // Find the highest priority request in the queue
+    
+    // Debug helpers
+    std::string getBusRequestTypeString(BusRequestType type) const;
+    std::string getCacheLineStateString(CacheLineState state) const;
 
 public:
     // Constructor takes block size in bytes
