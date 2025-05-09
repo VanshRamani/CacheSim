@@ -1,5 +1,6 @@
 #include "Bus.h"
 #include "Cache.h"
+#include "Simulator.h"
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -12,13 +13,13 @@ Bus::Bus(int blockSize) :
     blockSizeBytes(1 << blockSize),
     totalDataTrafficBytes(0),
     totalBusTransactions(0) {
-    std::cout << "DEBUG: Bus initialized with block size: " << blockSizeBytes << " bytes" << std::endl;
-    std::cout << "DEBUG: Memory latency set to: " << memoryLatency << " cycles" << std::endl;
+    DEBUG_PRINT("Bus initialized with block size: " << blockSizeBytes << " bytes");
+    DEBUG_PRINT("Memory latency set to: " << memoryLatency << " cycles");
 }
 
 void Bus::addCache(Cache* cache) {
     caches.push_back(cache);
-    std::cout << "DEBUG: Added cache " << cache->getId() << " to bus" << std::endl;
+    DEBUG_PRINT("Added cache " << cache->getId() << " to bus");
 }
 
 void Bus::pushRequest(int requesterId, BusRequestType type, address_t address, cycle_t currentCycle) {
@@ -37,10 +38,10 @@ void Bus::pushRequest(int requesterId, BusRequestType type, address_t address, c
 
     requestQueue.push_back(transaction);
     
-    std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << requesterId 
-              << " pushed " << getBusRequestTypeString(type) << " request for address 0x" 
-              << std::hex << address << std::dec 
-              << " to bus queue (queue size: " << requestQueue.size() << ")" << std::endl;
+    DEBUG_PRINT("Cycle " << currentCycle << ": Core " << requesterId 
+                << " pushed " << getBusRequestTypeString(type) << " request for address 0x" 
+                << std::hex << address << std::dec 
+                << " to bus queue (queue size: " << requestQueue.size() << ")");
 }
 
 size_t Bus::getQueueSize() const {
@@ -100,12 +101,11 @@ size_t Bus::findHighestPriorityRequest() const {
 void Bus::tick(cycle_t currentCycle) {
     // If there's an ongoing transaction, check if it's complete
     if (busy && currentCycle >= busyUntilCycle) {
-        std::cout << "DEBUG: Cycle " << currentCycle << ": Bus transaction completed for Core " 
-                  << currentTransaction.requesterId << ", addr: 0x" 
-                  << std::hex << currentTransaction.address << std::dec 
-                  << ", type: " << getBusRequestTypeString(currentTransaction.type) 
-                  << ", served by cache: " << (currentTransaction.servedByCache ? "yes" : "no") 
-                  << std::endl;
+        DEBUG_PRINT("Cycle " << currentCycle << ": Bus transaction completed for Core " 
+                    << currentTransaction.requesterId << ", addr: 0x" 
+                    << std::hex << currentTransaction.address << std::dec 
+                    << ", type: " << getBusRequestTypeString(currentTransaction.type) 
+                    << ", served by cache: " << (currentTransaction.servedByCache ? "yes" : "no"));
                   
         // Current transaction is complete
         notifyRequester(currentCycle, currentTransaction);
@@ -150,23 +150,22 @@ void Bus::tick(cycle_t currentCycle) {
             totalDataTrafficBytes += blockSizeBytes;
         }
         
-        std::cout << "DEBUG: Cycle " << currentCycle << ": Bus started transaction for Core " 
-                  << currentTransaction.requesterId << ", addr: 0x" 
-                  << std::hex << currentTransaction.address << std::dec 
-                  << ", type: " << getBusRequestTypeString(currentTransaction.type) 
-                  << ", will complete at cycle " << completionCycle 
-                  << " (latency: " << (completionCycle - currentCycle) << " cycles)"
-                  << ", served by cache: " << (suppliedByCache ? "yes" : "no") 
-                  << std::endl;
+        DEBUG_PRINT("Cycle " << currentCycle << ": Bus started transaction for Core " 
+                    << currentTransaction.requesterId << ", addr: 0x" 
+                    << std::hex << currentTransaction.address << std::dec 
+                    << ", type: " << getBusRequestTypeString(currentTransaction.type) 
+                    << ", will complete at cycle " << completionCycle 
+                    << " (latency: " << (completionCycle - currentCycle) << " cycles)"
+                    << ", served by cache: " << (suppliedByCache ? "yes" : "no"));
     }
 }
 
 bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction) {
     bool suppliedByCache = false;
     
-    std::cout << "DEBUG: Cycle " << currentCycle << ": Broadcasting snoop for addr 0x" 
-              << std::hex << transaction.address << std::dec 
-              << ", type: " << getBusRequestTypeString(transaction.type) << std::endl;
+    DEBUG_PRINT("Cycle " << currentCycle << ": Broadcasting snoop for addr 0x" 
+                << std::hex << transaction.address << std::dec 
+                << ", type: " << getBusRequestTypeString(transaction.type));
     
     // Send snoop to all caches except requester
     for (size_t i = 0; i < caches.size(); i++) {
@@ -174,8 +173,8 @@ bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction
             bool responded = caches[i]->snoop(currentCycle, transaction.type, transaction.address);
             if (responded) {
                 suppliedByCache = true;
-                std::cout << "DEBUG: Cycle " << currentCycle << ": Cache " << i 
-                          << " responded to snoop" << std::endl;
+                DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << i 
+                            << " responded to snoop");
                 // In real hardware, we would break here since only one cache can respond,
                 // but for simulation correctness, we want to make sure all caches update their state
             }
@@ -195,18 +194,18 @@ cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction&
             // Cache-to-cache transfer: 2N cycles (N words per block)
             int wordsPerBlock = blockSizeBytes / 4; // 4 bytes per word
             latency = 2 * wordsPerBlock;
-            std::cout << "DEBUG: Cache-to-cache transfer latency: " << latency 
-                      << " cycles (block size: " << blockSizeBytes 
-                      << " bytes, " << wordsPerBlock << " words)" << std::endl;
+            DEBUG_PRINT("Cache-to-cache transfer latency: " << latency 
+                        << " cycles (block size: " << blockSizeBytes 
+                        << " bytes, " << wordsPerBlock << " words)");
         } else {
             // Memory access: 100 cycles
             latency = memoryLatency;
-            std::cout << "DEBUG: Memory access latency: " << latency << " cycles" << std::endl;
+            DEBUG_PRINT("Memory access latency: " << latency << " cycles");
         }
     } else if (transaction.type == BusRequestType::WriteBack) {
         // Writeback to memory: 100 cycles
         latency = memoryLatency;
-        std::cout << "DEBUG: WriteBack latency: " << latency << " cycles" << std::endl;
+        DEBUG_PRINT("WriteBack latency: " << latency << " cycles");
     }
     
     return currentCycle + latency;
@@ -216,8 +215,8 @@ void Bus::notifyRequester(cycle_t currentCycle, const BusTransaction& transactio
     // Handle WriteBack case first
     if (transaction.type == BusRequestType::WriteBack) {
         // For WriteBack, just need to notify cache that writeback is complete
-        std::cout << "DEBUG: Cycle " << currentCycle << ": WriteBack completed for Core " 
-                  << transaction.requesterId << std::endl;
+        DEBUG_PRINT("Cycle " << currentCycle << ": WriteBack completed for Core " 
+                    << transaction.requesterId);
                   
         // A writeback doesn't invalidate or change the state of the line
         // The line was already evicted, so we're just notifying that the transaction completed
@@ -243,9 +242,9 @@ void Bus::notifyRequester(cycle_t currentCycle, const BusTransaction& transactio
         return;
     }
     
-    std::cout << "DEBUG: Cycle " << currentCycle << ": Notifying Core " 
-              << transaction.requesterId << " that transaction is complete, "
-              << "new state: " << getCacheLineStateString(newState) << std::endl;
+    DEBUG_PRINT("Cycle " << currentCycle << ": Notifying Core " 
+                << transaction.requesterId << " that transaction is complete, "
+                << "new state: " << getCacheLineStateString(newState));
     
     // Notify the requesting cache
     caches[transaction.requesterId]->notifyTransactionComplete(

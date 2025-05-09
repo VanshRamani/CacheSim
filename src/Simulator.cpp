@@ -5,6 +5,9 @@
 #include <cmath>
 #include <cassert>
 
+// Initialize static debug flag (default: enabled)
+bool Simulator::debugEnabled = true;
+
 Simulator::Simulator(const std::string& traceBase, int s, int E, int b) :
     currentCycle(0),
     bus(b), // Initialize bus with block size bits
@@ -23,12 +26,12 @@ Simulator::Simulator(const std::string& traceBase, int s, int E, int b) :
     cores.reserve(numCores);
     caches.reserve(numCores);
     
-    std::cout << "DEBUG: Simulator initialized with parameters: " << std::endl;
-    std::cout << "  Index bits (s): " << indexBits << std::endl;
-    std::cout << "  Associativity (E): " << associativity << std::endl;
-    std::cout << "  Block offset bits (b): " << blockOffsetBits << std::endl;
-    std::cout << "  Block size: " << blockSize << " bytes" << std::endl;
-    std::cout << "  Cache size per core: " << (cacheSize / 1024.0) << " KB" << std::endl;
+    DEBUG_PRINT("Simulator initialized with parameters: ");
+    DEBUG_PRINT("  Index bits (s): " << indexBits);
+    DEBUG_PRINT("  Associativity (E): " << associativity);
+    DEBUG_PRINT("  Block offset bits (b): " << blockOffsetBits);
+    DEBUG_PRINT("  Block size: " << blockSize << " bytes");
+    DEBUG_PRINT("  Cache size per core: " << (cacheSize / 1024.0) << " KB");
 }
 
 void Simulator::initialize() {
@@ -44,21 +47,21 @@ void Simulator::initialize() {
         cores.emplace_back(i, &caches[i], tracePath);
     }
     
-    std::cout << "DEBUG: Initialized " << numCores << " cores and caches." << std::endl;
+    DEBUG_PRINT("Initialized " << numCores << " cores and caches.");
 }
 
 void Simulator::run() {
     // Initialize the simulation components
     initialize();
     
-    std::cout << "DEBUG: Starting simulation..." << std::endl;
+    DEBUG_PRINT("Starting simulation...");
     
     // Run until all cores are finished
     while (!checkFinished()) {
         tick();
         
         // Print debug info every 1000 cycles
-        if (currentCycle % 1000 == 0) {
+        if (debugEnabled && currentCycle % 1000 == 0) {
             std::cout << "DEBUG: Cycle " << currentCycle << ": ";
             for (int i = 0; i < numCores; i++) {
                 std::cout << "Core " << i << " " 
@@ -70,7 +73,7 @@ void Simulator::run() {
         }
     }
     
-    std::cout << "DEBUG: Simulation completed at cycle " << currentCycle << std::endl;
+    DEBUG_PRINT("Simulation completed at cycle " << currentCycle);
     
     // Update total cycles for each core
     // This is the cycle when the last core finished
@@ -78,8 +81,8 @@ void Simulator::run() {
         // The individual core's execution cycles are:
         // totalCycles = simulationCycles - idleCycles
         // idleCycles are counted separately in Core::incrementIdleCycle
-        std::cout << "DEBUG: Core " << core.getId() << " execution cycles: " 
-                  << (currentCycle - core.getIdleCycles()) << std::endl;
+        DEBUG_PRINT("Core " << core.getId() << " execution cycles: " 
+                  << (currentCycle - core.getIdleCycles()));
         core.setTotalCycles(currentCycle - core.getIdleCycles());
     }
 }
@@ -127,7 +130,7 @@ bool Simulator::checkFinished() {
     }
     
     if (allFinished && currentCycle % 100 == 0) {
-        std::cout << "DEBUG: All cores finished at cycle " << currentCycle << std::endl;
+        DEBUG_PRINT("All cores finished at cycle " << currentCycle);
     }
     
     return allFinished;
@@ -193,6 +196,15 @@ void Simulator::printStats(const std::string& outfile) {
     if (fileStream.is_open()) {
         fileStream.close();
     }
+}
+
+// Debug control methods
+void Simulator::setDebugEnabled(bool enabled) {
+    debugEnabled = enabled;
+}
+
+bool Simulator::isDebugEnabled() {
+    return debugEnabled;
 }
 
 // Getters

@@ -1,5 +1,6 @@
 #include "Core.h"
 #include "Cache.h"
+#include "Simulator.h"
 #include <iostream>
 
 Core::Core(int id, Cache* cache, const std::string& tracePath) :
@@ -13,7 +14,7 @@ Core::Core(int id, Cache* cache, const std::string& tracePath) :
     instructionCount(0),
     readCount(0),
     writeCount(0) {
-    std::cout << "DEBUG: Core " << id << " initialized with trace file: " << tracePath << std::endl;
+    DEBUG_PRINT("Core " << id << " initialized with trace file: " << tracePath);
 }
 
 Core::~Core() {
@@ -31,7 +32,7 @@ void Core::tick(cycle_t currentCycle) {
         if (!cache->isBlocked() && currentCycle >= cache->getReadyCycle()) {
             // Cache has completed the operation, unblock core
             blocked = false;
-            std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << id << " unblocked" << std::endl;
+            DEBUG_PRINT("Cycle " << currentCycle << ": Core " << id << " unblocked");
         } else {
             // Still waiting for cache
             return;
@@ -53,9 +54,9 @@ void Core::tick(cycle_t currentCycle) {
 
         // Every 1000 instructions, print debug info
         if (instructionCount % 1000 == 0) {
-            std::cout << "DEBUG: Core " << id << " executed " << instructionCount 
-                      << " instructions, " << readCount << " reads, " 
-                      << writeCount << " writes" << std::endl;
+            DEBUG_PRINT("Core " << id << " executed " << instructionCount 
+                        << " instructions, " << readCount << " reads, " 
+                        << writeCount << " writes");
         }
 
         // Try to access cache
@@ -64,18 +65,17 @@ void Core::tick(cycle_t currentCycle) {
         if (!hit) {
             // Cache miss - block the core
             blocked = true;
-            std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << id 
-                      << " blocked due to cache miss, addr: 0x" 
-                      << std::hex << entry.addr << std::dec 
-                      << ", op: " << (entry.op == MemOperation::READ ? "READ" : "WRITE") 
-                      << std::endl;
+            DEBUG_PRINT("Cycle " << currentCycle << ": Core " << id 
+                        << " blocked due to cache miss, addr: 0x" 
+                        << std::hex << entry.addr << std::dec 
+                        << ", op: " << (entry.op == MemOperation::READ ? "READ" : "WRITE"));
         }
     } else {
         // End of trace - mark core as finished
         finished = true;
-        std::cout << "DEBUG: Cycle " << currentCycle << ": Core " << id 
-                  << " finished execution after " << instructionCount 
-                  << " instructions" << std::endl;
+        DEBUG_PRINT("Cycle " << currentCycle << ": Core " << id 
+                    << " finished execution after " << instructionCount 
+                    << " instructions");
     }
 }
 
@@ -85,8 +85,8 @@ void Core::incrementIdleCycle() {
         
         // Debug counter for idle cycles
         if (idleCycles % 1000 == 0) {
-            std::cout << "DEBUG: Core " << id << " idle cycle count: " 
-                      << idleCycles << std::endl;
+            DEBUG_PRINT("Core " << id << " idle cycle count: " 
+                        << idleCycles);
         }
     }
 }
@@ -101,10 +101,10 @@ bool Core::isBlocked() const {
 
 void Core::setTotalCycles(cycle_t cycles) {
     totalCycles = cycles;
-    std::cout << "DEBUG: Core " << id << " final stats - Total cycles: " 
-              << totalCycles << ", Idle cycles: " << idleCycles 
-              << ", Instructions: " << instructionCount 
-              << ", Execution cycles: " << (totalCycles - idleCycles) << std::endl;
+    DEBUG_PRINT("Core " << id << " final stats - Total cycles: " 
+                << totalCycles << ", Idle cycles: " << idleCycles 
+                << ", Instructions: " << instructionCount 
+                << ", Execution cycles: " << (totalCycles - idleCycles));
 }
 
 cycle_t Core::getTotalCycles() const {

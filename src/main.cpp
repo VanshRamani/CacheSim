@@ -12,6 +12,7 @@ void printUsage(const char* programName) {
     std::cout << "  -E <E>: associativity (number of cache lines per set)\n";
     std::cout << "  -b <b>: number of block bits (block size = B = 2^b)\n";
     std::cout << "  -o <outfilename>: logs output in file for plotting etc.\n";
+    std::cout << "  -d: enable debug output (disabled by default)\n";
     std::cout << "  -h: prints this help\n";
 }
 
@@ -22,10 +23,11 @@ int main(int argc, char* argv[]) {
     int E = 2;  // 2-way associative by default
     int b = 5;  // 32-byte blocks by default
     std::string outFile = "";
+    bool debugEnabled = false;  // Debug disabled by default
     
     // Parse command-line arguments
     int opt;
-    while ((opt = getopt(argc, argv, "t:s:E:b:o:h")) != -1) {
+    while ((opt = getopt(argc, argv, "t:s:E:b:o:dh")) != -1) {
         switch (opt) {
             case 't':
                 traceFile = optarg;
@@ -41,6 +43,9 @@ int main(int argc, char* argv[]) {
                 break;
             case 'o':
                 outFile = optarg;
+                break;
+            case 'd':
+                debugEnabled = true;
                 break;
             case 'h':
                 printUsage(argv[0]);
@@ -66,6 +71,13 @@ int main(int argc, char* argv[]) {
     }
     
     try {
+        // Set debug mode
+        Simulator::setDebugEnabled(debugEnabled);
+        
+        if (debugEnabled) {
+            std::cout << "Debug mode enabled" << std::endl;
+        }
+        
         // Create simulator
         Simulator simulator(traceFile, s, E, b);
         
