@@ -124,17 +124,19 @@ private:
     
     // Block allocation
     void allocateBlock(cycle_t currentCycle, address_t addr, CacheLineState newState);
-    
+    bool modifiedLineWrittenBack;  // Track if a modified line was written back
     // Debug helpers
     std::string getBusRequestTypeString(BusRequestType type) const;
     std::string getCacheLineStateString(CacheLineState state) const;
     
 public:
     Cache(int id, int s, int E, int b, Bus* bus);
-    
+    bool wasModifiedLineWrittenBack() const { return modifiedLineWrittenBack; }
+    void resetModifiedLineFlag() { modifiedLineWrittenBack = false; }
     // Main cache access function
     bool access(cycle_t currentCycle, MemOperation op, address_t addr);
     
+    bool handleSnoop(address_t address, BusRequestType requestType, cycle_t currentCycle);
     // Snoop function to handle coherence
     bool snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr);
     

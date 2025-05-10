@@ -218,6 +218,65 @@ bool Cache::access(cycle_t currentCycle, MemOperation op, address_t addr) {
     }
 }
 
+bool Cache::handleSnoop(address_t address, BusRequestType requestType, cycle_t currentCycle) {
+    CacheLine* line = findBlock(address);  
+    
+    if (!line) {
+        return false; // Not in this cache
+    }
+    
+    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " handling snoop for addr: 0x" << std::hex << address << std::dec 
+                << ", req: " << getBusRequestTypeString(requestType) 
+                << ", state: " << getCacheLineStateString(line->getState()));
+    
+    // Reset the modified line flag for each snoop request
+    modifiedLineWrittenBack = false;
+    
+    // If we have a modified line and someone else wants to read or write
+    if (line->getState() == CacheLineState::MODIFIED) {
+        if (requestType == BusRequestType::BusRd) {
+            // Traditional behavior for BusRd - provide data and change to SHARED
+            line->setState(CacheLineState::SHARED); 
+            return true;
+        }
+        else if (requestType == BusRequestType::BusRdX) {
+            // Set the modified line flag to indicate writeback occurred
+            modifiedLineWrittenBack = true;
+            
+            // Count this as a writeback
+            stats.writebacks++;
+            
+            DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
+                << " writing back modified line due to BusRdX: 0x" 
+                << std::hex << address << std::dec);
+                
+            // Set state to Invalid
+            line->setState(CacheLineState::INVALID);
+            
+            return false; // Don't supply data directly - force memory access
+        }
+    } else if (line->getState() == CacheLineState::EXCLUSIVE) {
+        if (requestType == BusRequestType::BusRd) {
+            // Someone else wants to read, we transition to SHARED
+            line->setState(CacheLineState::SHARED);
+            return true;
+        } else if (requestType == BusRequestType::BusRdX) {
+            // Someone else wants exclusive access, we invalidate
+            line->setState(CacheLineState::INVALID);
+            return false;
+        }
+    } else if (line->getState() == CacheLineState::SHARED) {
+        if (requestType == BusRequestType::BusRdX) {
+            stats.invalidationsReceived++;  // Use the correct field from your stats struct
+            line->setState(CacheLineState::INVALID);
+        }
+        return false;
+    }
+    
+    return false;
+}
+
 void Cache::handleMiss(cycle_t currentCycle, MemOperation op, address_t addr, address_t tag, int setIndex) {
     // Block cache while handling miss
     blocked = true;

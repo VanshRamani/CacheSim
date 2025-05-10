@@ -160,14 +160,44 @@ void Bus::tick(cycle_t currentCycle) {
     }
 }
 
-bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction) {
+bool Bus::broadcastSnoop(cycle_t currentCycle, BusTransaction& transaction) {
     bool suppliedByCache = false;
+    bool foundModified = false;
     
     DEBUG_PRINT("Cycle " << currentCycle << ": Broadcasting snoop for addr 0x" 
                 << std::hex << transaction.address << std::dec 
                 << ", type: " << getBusRequestTypeString(transaction.type));
     
-    // Send snoop to all caches except requester
+    // Special handling for BusRdX (RWITM)
+    if (transaction.type == BusRequestType::BusRdX) {
+        // Check if any cache has the block in Modified state
+        for (size_t i = 0; i < caches.size(); i++) {
+            if (static_cast<int>(i) != transaction.requesterId) {
+                bool responded = caches[i]->snoop(currentCycle, transaction.type, transaction.address);
+                if (responded) {
+                    // This shouldn't happen with BusRdX, but keeping the check
+                    suppliedByCache = true;
+                    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << i 
+                                << " responded to BusRdX (unusual)");
+                }
+                
+                // Check if this was a modified line (for timing purposes)
+                if (caches[i]->wasModifiedLineWrittenBack()) {
+                    foundModified = true;
+                    DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << i 
+                                << " had block in M state and wrote back to memory");
+                    
+                    // Store this in the transaction for timing calculation
+                    transaction.hadModifiedWriteback = true;
+                }
+            }
+        }
+        
+        // Always return false for BusRdX to force memory access
+        return false;
+    }
+    
+    // Standard behavior for other transaction types
     for (size_t i = 0; i < caches.size(); i++) {
         if (static_cast<int>(i) != transaction.requesterId) {
             bool responded = caches[i]->snoop(currentCycle, transaction.type, transaction.address);
@@ -175,8 +205,6 @@ bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction
                 suppliedByCache = true;
                 DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << i 
                             << " responded to snoop");
-                // In real hardware, we would break here since only one cache can respond,
-                // but for simulation correctness, we want to make sure all caches update their state
             }
         }
     }
@@ -184,26 +212,47 @@ bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction
     return suppliedByCache;
 }
 
-cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction& transaction, bool suppliedByCache) {
+cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, BusTransaction& transaction, bool suppliedByCache) {
     cycle_t latency = 0;
     
     // Calculate latency based on transaction type and source
-    if (transaction.type == BusRequestType::BusRd || 
-        transaction.type == BusRequestType::BusRdX) {
+    if (transaction.type == BusRequestType::BusRd) {
+        // Regular read logic
         if (suppliedByCache) {
-            // Cache-to-cache transfer: 2N cycles (N words per block)
-            int wordsPerBlock = blockSizeBytes / 4; // 4 bytes per word
+            int wordsPerBlock = blockSizeBytes / 4;
             latency = 2 * wordsPerBlock;
-            DEBUG_PRINT("Cache-to-cache transfer latency: " << latency 
-                        << " cycles (block size: " << blockSizeBytes 
-                        << " bytes, " << wordsPerBlock << " words)");
+            DEBUG_PRINT("Cache-to-cache transfer latency: " << latency << " cycles");
         } else {
-            // Memory access: 100 cycles
             latency = memoryLatency;
             DEBUG_PRINT("Memory access latency: " << latency << " cycles");
         }
+    } else if (transaction.type == BusRequestType::BusRdX) {
+        // For BusRdX, always check for a modified block in other caches
+        bool foundModified = false;
+        
+        // Check all caches except the requester
+        for (size_t i = 0; i < caches.size(); i++) {
+            if (static_cast<int>(i) != transaction.requesterId) {
+                if (caches[i]->wasModifiedLineWrittenBack()) {
+                    foundModified = true;
+                    transaction.hadModifiedWriteback = true;
+                    DEBUG_PRINT("Core " << i << " has modified block, requires writeback");
+                    break;
+                }
+            }
+        }
+        
+        if (foundModified) {
+            // Writeback + memory read = 2 * memory latency
+            latency = 2 * memoryLatency;
+            DEBUG_PRINT("BusRdX with writeback: " << latency << " cycles");
+        } else {
+            // Normal memory access
+            latency = memoryLatency;
+            DEBUG_PRINT("BusRdX standard memory: " << latency << " cycles");
+        }
     } else if (transaction.type == BusRequestType::WriteBack) {
-        // Writeback to memory: 100 cycles
+        // Writeback to memory
         latency = memoryLatency;
         DEBUG_PRINT("WriteBack latency: " << latency << " cycles");
     }
