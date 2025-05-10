@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.5.10)  10 MAY 2025 13:14
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.5.10)  10 MAY 2025 13:56
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -681,13 +681,65 @@ File: pgflibraryarrows.meta.code.tex 2023-01-15 v3.1.10 (3.1.10)
 /libraries\tikzlibrarypositioning.code.tex
 File: tikzlibrarypositioning.code.tex 2023-01-15 v3.1.10 (3.1.10)
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 19.
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/adjustbox\adjustbox.sty
+Package: adjustbox 2025/02/26 v1.3c Adjusting TeX boxes (trim, clip, ...)
+
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/xkeyval\xkeyval.sty
+Package: xkeyval 2022/06/16 v2.9 package option processing (HA)
+
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/generic/xkeyval\xkeyval.tex
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/generic/xkeyval\xkvutils.tex
+\XKV@toks=\toks39
+\XKV@tempa@toks=\toks40
+)
+\XKV@depth=\count320
+File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
+)) (C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/adjustbox\adjcalc.sty
+Package: adjcalc 2012/05/16 v1.1 Provides advanced setlength with multiple back
+-ends (calc, etex, pgfmath)
+) (C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/adjustbox\trimclip.sty
+Package: trimclip 2025/02/21 v1.2a Trim and clip general TeX material
+
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/collectbox\collectbox.st
+y
+Package: collectbox 2022/10/17 v0.4c Collect macro arguments as boxes
+\collectedbox=\box68
+)
+\tc@llx=\dimen286
+\tc@lly=\dimen287
+\tc@urx=\dimen288
+\tc@ury=\dimen289
+Package trimclip Info: Using driver 'tc-pdftex.def'.
+
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/adjustbox\tc-pdftex.def
+File: tc-pdftex.def 2025/02/26 v2.3 Clipping driver for pdftex
+))
+\adjbox@Width=\dimen290
+\adjbox@Height=\dimen291
+\adjbox@Depth=\dimen292
+\adjbox@Totalheight=\dimen293
+\adjbox@pwidth=\dimen294
+\adjbox@pheight=\dimen295
+\adjbox@pdepth=\dimen296
+\adjbox@ptotalheight=\dimen297
+
+(C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/ifoddpage\ifoddpage.sty
+Package: ifoddpage 2022/10/18 v1.2 Conditionals for odd/even page detection
+\c@checkoddpage=\count321
+) (C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/varwidth\varwidth.sty
+Package: varwidth 2009/03/30 ver 0.92;  Variable-width minipages
+\@vwid@box=\box69
+\sift@deathcycles=\count322
+\@vwid@loff=\dimen298
+\@vwid@roff=\dimen299
+))
+Package hyperref Info: Option `colorlinks' set `true' on input line 20.
 
 (C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdft
 ex.def
 File: l3backend-pdftex.def 2024-01-04 L3 backend support: PDF output (pdfTeX)
-\l__color_backend_stack_int=\count320
-\l__pdf_internal_box=\box68
+\l__color_backend_stack_int=\count323
+\l__pdf_internal_box=\box70
 ) (report.aux)
 \openout1 = `report.aux'.
 
@@ -748,17 +800,17 @@ LaTeX Font Info:    ... okay on input line 35.
 (C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mki
 i
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count321
-\scratchdimen=\dimen286
-\scratchbox=\box69
-\nofMPsegments=\count322
-\nofMParguments=\count323
-\everyMPshowfont=\toks39
-\MPscratchCnt=\count324
-\MPscratchDim=\dimen287
-\MPnumerator=\count325
-\makeMPintoPDFobject=\count326
-\everyMPtoPDFconversion=\toks40
+\scratchcounter=\count324
+\scratchdimen=\dimen300
+\scratchbox=\box71
+\nofMPsegments=\count325
+\nofMParguments=\count326
+\everyMPshowfont=\toks41
+\MPscratchCnt=\count327
+\MPscratchDim=\dimen301
+\MPnumerator=\count328
+\makeMPintoPDFobject=\count329
+\everyMPtoPDFconversion=\toks42
 )
 (C:\Users\USER\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-ba
 se.sty
@@ -770,7 +822,7 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 g
 File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 ))
-\c@lstlisting=\count327
+\c@lstlisting=\count330
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: float package is loaded.
 Package caption Info: hyperref package is loaded.
@@ -790,8 +842,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.108     \node (simulator) [block] {Simulator\\C
+                                                 oordinates\\execution};
 ? r
 OK, entering \nonstopmode...
 
@@ -801,8 +853,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.108 ...lator) [block] {Simulator\\Coordinates\\e
+                                                  xecution};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -813,8 +865,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.109 ...[block, below left=of simulator] {Core\\I
+                                                  ssues memory ops};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -825,8 +877,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.110 ...[block, below right=of simulator] {Bus\\H
+                                                  andles coherence};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -837,8 +889,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.111 ... (cache) [block, below=of core] {Cache\\P
+                                                  erforms reads/writes};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -849,8 +901,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.112 ...set) [block, below=of cache] {CacheSet\\H
+                                                  olds cache lines};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -861,8 +913,8 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.113 ...line) [block, below=of set] {CacheLine\\T
+                                                  racks MESI state};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -873,31 +925,16 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.124 }
-       
+l.114 ...er) [block, left=of core] {TraceReader\\P
+                                                  arses input};
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
-
-
-Package caption Warning: \setcaptiontype
-(caption)                outside box or environment on input line 125.
-See the caption package documentation for explanation.
-
-
-Package caption Warning: The option `hypcap=true' will be ignored for this
-(caption)                particular \caption on input line 125.
-See the caption package documentation for explanation.
-
-
-Overfull \hbox (39.75902pt too wide) in paragraph at lines 124--125
- [][] 
- []
 
 [2]
 ! Missing $ inserted.
 <inserted text> 
                 $
-l.132 ...>} for lines, \texttt{std::unordered_map}
+l.133 ...>} for lines, \texttt{std::unordered_map}
                                                    for tag lookups.
 I've inserted a begin-math/end-math symbol since I think
 you left one out. Proceed, with fingers crossed.
@@ -905,7 +942,7 @@ you left one out. Proceed, with fingers crossed.
 ! Extra }, or forgotten $.
 <recently read> \egroup 
                         
-l.132 ...>} for lines, \texttt{std::unordered_map}
+l.133 ...>} for lines, \texttt{std::unordered_map}
                                                    for tag lookups.
 I've deleted a group-closing symbol because it seems to be
 spurious, as in `$x}$'. But perhaps the } is legitimate and
@@ -920,7 +957,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.133     \item
+l.134     \item
                 \textbf{MESI State} (Enum \texttt{CacheLineState}): MODIFIED...
 
 Try typing  <return>  to proceed.
@@ -933,7 +970,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.133     \item \textbf
+l.134     \item \textbf
                        {MESI State} (Enum \texttt{CacheLineState}): MODIFIED...
 
 Try typing  <return>  to proceed.
@@ -946,14 +983,14 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.133     \item \textbf
+l.134     \item \textbf
                        {MESI State} (Enum \texttt{CacheLineState}): MODIFIED...
 
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 133.
+(Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 134.
 
 ! LaTeX Error: Command \item invalid in math mode.
 
@@ -961,7 +998,7 @@ See the LaTeX manual or LaTeX Companion for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.134     \item
+l.135     \item
                 \textbf{BusRequestType} (Enum): BusRd, BusRdX, WriteBack.
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -969,7 +1006,7 @@ If that doesn't work, type  X <return>  to quit.
 ! Missing $ inserted.
 <inserted text> 
                 $
-l.134     \item \textbf
+l.135     \item \textbf
                        {BusRequestType} (Enum): BusRd, BusRdX, WriteBack.
 I've inserted a begin-math/end-math symbol since I think
 you left one out. Proceed, with fingers crossed.
@@ -977,7 +1014,7 @@ you left one out. Proceed, with fingers crossed.
 ! Missing } inserted.
 <inserted text> 
                 }
-l.134     \item \textbf
+l.135     \item \textbf
                        {BusRequestType} (Enum): BusRd, BusRdX, WriteBack.
 I've inserted something that you may have forgotten.
 (See the <inserted text> above.)
@@ -986,7 +1023,7 @@ really didn't forget anything, try typing `2' now; then
 my insertion and my current dilemma will both disappear.
 
 
-Overfull \hbox (143.41338pt too wide) in paragraph at lines 132--134
+Overfull \hbox (143.41338pt too wide) in paragraph at lines 133--135
 []\OT1/cmr/bx/n/10.95 CacheSet\OT1/cmr/m/n/10.95 : \OT1/cmtt/m/n/10.95 std::vec
 tor<CacheLine> \OT1/cmr/m/n/10.95 for lines, \OT1/cmtt/m/n/10.95 std::unordered
 $[]\OML/cmm/m/it/10.95 apfortaglookups:[]\OT1/cmr/m/n/10.95 (\OML/cmm/m/it/10.9
@@ -994,17 +1031,25 @@ $[]\OML/cmm/m/it/10.95 apfortaglookups:[]\OT1/cmr/m/n/10.95 (\OML/cmm/m/it/10.9
  []
 
 
-Underfull \hbox (badness 5696) in paragraph at lines 135--136
+Overfull \hbox (26.78069pt too wide) in paragraph at lines 136--137
 []\OT1/cmr/bx/n/10.95 BusTransaction\OT1/cmr/m/n/10.95 : \OT1/cmtt/m/n/10.95 re
 questerId\OT1/cmr/m/n/10.95 , \OT1/cmtt/m/n/10.95 address\OT1/cmr/m/n/10.95 , \
 OT1/cmtt/m/n/10.95 type\OT1/cmr/m/n/10.95 , \OT1/cmtt/m/n/10.95 startCycle\OT1/
-cmr/m/n/10.95 , \OT1/cmtt/m/n/10.95 completionCycle\OT1/cmr/m/n/10.95 ,
+cmr/m/n/10.95 , \OT1/cmtt/m/n/10.95 completionCycle\OT1/cmr/m/n/10.95 , \OT1/cm
+tt/m/n/10.95 servedByCache\OT1/cmr/m/n/10.95 . 
  []
 
 
-Package caption Warning: The option `hypcap=true' will be ignored for this
-(caption)                particular \caption on input line 194.
-See the caption package documentation for explanation.
+! LaTeX Error: Something's wrong--perhaps a missing \item.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.156 ...k, below=of read_snoop] {Update MESI: \\ 
+                                                  S or E};
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 [3] [4] [5] [6] [7] (report.aux)
  ***********
@@ -1015,13 +1060,13 @@ Package rerunfilecheck Info: File `report.out' has not changed.
 (rerunfilecheck)             Checksum: 62920774873456B61F2D48D00722C2A6;1926.
  ) 
 Here is how much of TeX's memory you used:
- 23928 strings out of 474486
- 450781 string characters out of 5744227
- 1949542 words of memory out of 5000000
- 45813 multiletter control sequences out of 15000+600000
+ 25078 strings out of 474486
+ 472243 string characters out of 5744227
+ 1951542 words of memory out of 5000000
+ 46928 multiletter control sequences out of 15000+600000
  564983 words of font info for 61 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,8n,93p,448b,744s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,10n,93p,448b,957s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\USER\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm1
 095.pk><C:/Users/USER/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts
 /cm/cmbx10.pfb><C:/Users/USER/AppData/Local/Programs/MiKTeX/fonts/type1/public/
@@ -1035,9 +1080,9 @@ ta/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/USER
 /AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Us
 ers/USER/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pf
 b>
-Output written on report.pdf (7 pages, 187159 bytes).
+Output written on report.pdf (7 pages, 181746 bytes).
 PDF statistics:
- 198 PDF objects out of 1000 (max. 8388607)
- 50 named destinations out of 1000 (max. 500000)
+ 199 PDF objects out of 1000 (max. 8388607)
+ 51 named destinations out of 1000 (max. 500000)
  141 words of extra memory for PDF output out of 10000 (max. 10000000)
 

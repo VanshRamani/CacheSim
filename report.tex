@@ -9,6 +9,7 @@
 \usepackage{hyperref}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+\usepackage{adjustbox} % For better scaling control
 
 \hypersetup{
     colorlinks=true,
@@ -18,15 +19,14 @@
     urlcolor=blue
 }
 
-% TikZ styles for class interaction diagram
-\tikzstyle{block} = [rectangle, draw=black, fill=blue!20, 
-    text centered, rounded corners, minimum height=2em, minimum width=4em]
-\tikzstyle{arrow} = [thick, ->, >=stealth]
-
-% TikZ styles for control flow diagram
-\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=blue!10]
-\tikzstyle{process} = [rectangle, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=gray!10]
-\tikzstyle{decision} = [diamond, aspect=1.5, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=orange!10]
+% Unified TikZ styles for all diagrams
+\tikzset{
+    block/.style={rectangle, draw=black, fill=blue!20, text centered, rounded corners, minimum height=2em, minimum width=4em, font=\small},
+    arrow/.style={thick, ->, >=stealth},
+    startstop/.style={rectangle, rounded corners, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=gray!20, font=\small},
+    process/.style={rectangle, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=blue!10, font=\small},
+    decision/.style={diamond, aspect=1.5, minimum width=2.5cm, minimum height=0.8cm, text centered, draw=black, fill=orange!10, font=\small}
+}
 
 \title{COL 216 Assignment 3: \\ L1 Cache Simulator for Quad-Core Processor}
 \author{Aditya Anand (2023CS50284) \\ Vansh Ramani (2023CS50804)}
@@ -100,10 +100,10 @@ Reports:
     \item Bus stats: total transactions and data transferred.
 \end{itemize}
 
-\vspace{-\baselineskip}
+\begin{figure}[H]
 \centering
-\scalebox{0.75}{ % Adjusted scale to fit within margins
-\begin{tikzpicture}[node distance=1cm and 1.8cm]
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[node distance=0.8cm and 1.5cm]
     % Nodes
     \node (simulator) [block] {Simulator\\Coordinates\\execution};
     \node (core) [block, below left=of simulator] {Core\\Issues memory ops};
@@ -121,8 +121,9 @@ Reports:
     \draw [arrow] (core) -- node[midway, below, font=\scriptsize] {communicates} (bus);
     \draw [arrow] (core) -- (reader);
 \end{tikzpicture}
-}
-\captionof{figure}{Class interaction diagram of the L1 Cache Simulator}
+\end{adjustbox}
+\caption{Class interaction diagram of the L1 Cache Simulator}
+\end{figure}
 
 \section{Data Structures}
 
@@ -137,63 +138,87 @@ Core data structures include:
     \item \textbf{Statistics}: Counters for hits, misses, evictions, writebacks, invalidations, idle cycles, instruction count, total cycles.
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[node distance=1.2cm and 1.2cm]
+    % Start
+    \node (start) [block] {Start Memory Access};
+    % Access Type
+    \node (access) [decision, below=of start] {Read or Write?};
+    \node (read_hit) [block, right=of access, xshift=3.5cm] {Read Access};
+    \node (write_hit) [block, left=of access, xshift=-3.5cm] {Write Access};
+    % Read Path
+    \node (read_hit_check) [decision, below=of read_hit] {Cache Hit?};
+    \node (read_hit_ok) [block, below=of read_hit_check, yshift=-0.2cm] {Return Data (1 cycle)};
+    \node (read_miss) [block, right=of read_hit_check, xshift=4cm] {Send BusRd};
+    \node (read_snoop) [block, below=of read_miss] {Snoop Responses};
+    \node (read_update) [block, below=of read_snoop] {Update MESI: \\ S or E};
+    \node (read_insert) [block, below=of read_update] {Insert Line in Cache};
+    % Write Path
+    \node (write_hit_check) [decision, below=of write_hit] {Cache Hit?};
+    \node (write_hit_mesistate) [decision, below=of write_hit_check] {State M or E?};
+    \node (write_no_upgr) [block, right=of write_hit_mesistate, xshift=3.5cm] {Send BusUpgr};
+    \node (write_update_M) [block, below=of write_hit_mesistate] {Update to M and Write};
+    \node (write_miss) [block, left=of write_hit_check, xshift=-4cm] {Send BusRdX};
+    \node (write_miss_snoop) [block, below=of write_miss] {Snoop Responses};
+    \node (write_miss_update) [block, below=of write_miss_snoop] {Insert Line, Set to M};
+    \node (write_miss_data) [block, below=of write_miss_update] {Write to Cache};
+    % Arrows
+    \draw [arrow] (start) -- (access);
+    \draw [arrow] (access) -- (read_hit);
+    \draw [arrow] (access) -- (write_hit);
+    \draw [arrow] (read_hit) -- (read_hit_check);
+    \draw [arrow] (read_hit_check) -- node[midway, left] {Yes} (read_hit_ok);
+    \draw [arrow] (read_hit_check) -- node[midway, above] {No} (read_miss);
+    \draw [arrow] (read_miss) -- (read_snoop);
+    \draw [arrow] (read_snoop) -- (read_update);
+    \draw [arrow] (read_update) -- (read_insert);
+    \draw [arrow] (write_hit) -- (write_hit_check);
+    \draw [arrow] (write_hit_check) -- node[midway, left] {Yes} (write_hit_mesistate);
+    \draw [arrow] (write_hit_mesistate) -- node[midway, left] {Yes} (write_update_M);
+    \draw [arrow] (write_hit_mesistate) -- node[midway, above] {No} (write_no_upgr);
+    \draw [arrow] (write_hit_check) -- node[midway, above] {No} (write_miss);
+    \draw [arrow] (write_miss) -- (write_miss_snoop);
+    \draw [arrow] (write_miss_snoop) -- (write_miss_update);
+    \draw [arrow] (write_miss_update) -- (write_miss_data);
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Memory access control flow for L1 cache simulator}
+\end{figure}
+
 \section{Control Flow Diagram}
 
-\vspace{-\baselineskip}
+\begin{figure}[H]
 \centering
-\scalebox{0.75}{ % Adjusted scale to fit within margins
-\begin{tikzpicture}[node distance=1cm, scale=0.85, every node/.style={transform shape}, font=\scriptsize]
+\begin{adjustbox}{max width=0.8\textwidth}
+\begin{tikzpicture}[node distance=1cm and 1cm]
     % Nodes
     \node (start) [startstop] {Start Simulation};
-    \node (loop) [process, below=of start] {Global Clock Loop};
-    \node (busTick) [process, below=of loop] {Invoke Bus.tick()};
-    \node (coreTick) [process, below=of busTick] {For each core, call core.tick()};
-    \node (coreBlocked) [decision, below=of coreTick, yshift=-0.3cm] {Is Core Blocked?};
-    \node (ready) [decision, right=2.5cm of coreBlocked] {Is Cache Ready?};
-    \node (unblock) [process, below=of ready] {Unblock Core};
-    \node (getTrace) [decision, below=of coreBlocked, yshift=-1.2cm] {Has More Trace?};
-    \node (fetch) [process, below=of getTrace] {Fetch Trace Entry};
-    \node (opType) [decision, below=of fetch, yshift=-0.8cm] {READ or WRITE?};
-    \node (readHit) [decision, below left=1.8cm and 1cm of opType] {READ Hit?};
-    \node (writeHit) [decision, below right=1.8cm and 1cm of opType] {WRITE Hit?};
-    \node (idle) [process, left=2.5cm of coreBlocked] {Increment Idle Cycle};
-    \node (cacheRead) [process, below=of readHit, yshift=-0.5cm] {Perform Cache Read};
-    \node (cacheWrite) [process, below=of writeHit, yshift=-0.5cm] {Perform Cache Write};
-    \node (blockCore) [process, below=of opType, yshift=-2cm] {Block Core};
-    \node (finished) [decision, below=of blockCore, yshift=-1cm] {All Cores Finished?};
-    \node (end) [startstop, below=of finished] {End Simulation};
+    \node (args) [process, below=of start] {Parse Command Line Arguments};
+    \node (init) [process, below=of args] {Initialize Bus, Cores, and Caches};
+    \node (load) [process, below=of init] {Load Trace Files for Each Core};
+    \node (loop) [process, below=of load] {Start Global Clock Loop};
+    \node (busTick) [process, below=of loop] {Call Bus.tick()};
+    \node (coreTick) [process, below=of busTick] {For each Core, call Core.tick()};
+    \node (checkDone) [decision, below=of coreTick] {All Cores Done?};
+    \node (done) [startstop, below=of checkDone] {End Simulation};
     % Arrows
-    \draw [arrow] (start) -- (loop);
+    \draw [arrow] (start) -- (args);
+    \draw [arrow] (args) -- (init);
+    \draw [arrow] (init) -- (load);
+    \draw [arrow] (load) -- (loop);
     \draw [arrow] (loop) -- (busTick);
     \draw [arrow] (busTick) -- (coreTick);
-    \draw [arrow] (coreTick) -- (coreBlocked);
-    % Core blocked path
-    \draw [arrow] (coreBlocked) -- node[anchor=south] {Yes} (ready);
-    \draw [arrow] (ready) -- node[right] {Yes} (unblock);
-    \draw [arrow] (unblock.west) -- ++(-0.8,0) |- ([xshift=-0.5cm]coreTick.west) -- (coreTick.west);
-    \draw [arrow] (ready.east) -- ++(0.8,0) node[midway, above] {No} |- (idle);
-    \draw [arrow] (coreBlocked.west) -- (idle.east);
-    % Not blocked
-    \draw [arrow] (coreBlocked) -- node[left] {No} (getTrace);
-    \draw [arrow] (getTrace) -- node[left] {Yes} (fetch);
-    \draw [arrow] (fetch) -- (opType);
-    \draw [arrow] (opType) -- node[anchor=south] {READ} (readHit);
-    \draw [arrow] (opType) -- node[anchor=south] {WRITE} (writeHit);
-    \draw [arrow] (readHit) -- node[left] {Yes} (cacheRead);
-    \draw [arrow] (writeHit) -- node[right] {Yes} (cacheWrite);
-    \draw [arrow] (readHit) -- node[right] {No} (blockCore);
-    \draw [arrow] (writeHit) -- node[left] {No} (blockCore);
-    \draw [arrow] (cacheRead) -- ++(0,-0.5) |- ([xshift=-0.3cm]coreTick.west) -- (coreTick.west);
-    \draw [arrow] (cacheWrite) -- ++(0,-0.5) |- ([xshift=0.3cm]coreTick.east) -- (coreTick.east);
-    \draw [arrow] (blockCore) -- (finished);
-    \draw [arrow] (getTrace.south) -- ++(0,-0.6) node[midway, left] {No} |- (finished.north);
-    \draw [arrow] (finished) -- node[right] {No} ++(0,-0.6) -| ([xshift=-6.5cm]loop.west) -- (loop.west);
-    \draw [arrow] (finished) -- node[right] {Yes} (end);
+    \draw [arrow] (coreTick) -- (checkDone);
+    \draw [arrow] (checkDone) -- node[right] {Yes} (done);
+    \draw [arrow] (checkDone.west) -- ++(-1.5,0) node[midway, above] {No} |- (loop.west);
 \end{tikzpicture}
-}
-\captionof{figure}{Global simulation control flow for L1 cache simulator}
+\end{adjustbox}
+\caption{Top-level global simulation control flow for L1 cache simulator}
+\end{figure}
 
-\section{Design Decisions}\nopagebreak
+\section{Design Decisions}
 The L1 cache simulator incorporates key design choices for realistic behavior, deterministic execution, and manageable complexity:
 
 \begin{enumerate}
@@ -232,7 +257,7 @@ The L1 cache simulator incorporates key design choices for realistic behavior, d
     \item \textbf{Microbenchmark Verification}: Validated MESI and writebacks with 2–5 instruction traces.
 \end{enumerate}
 
-\section{Performance Analysis}\nopagebreak
+\section{Performance Analysis}
 
 To evaluate cache parameter impacts, we conducted experiments varying one parameter at a time while keeping others fixed at:
 \begin{itemize}
@@ -243,7 +268,7 @@ To evaluate cache parameter impacts, we conducted experiments varying one parame
 
 For each parameter, we doubled its value across runs and measured the \textbf{maximum execution cycles across all cores}, reflecting total workload completion time, including computation and stalls due to memory or coherence delays. Experiments used provided application traces, with results recorded for comparison.
 
-\section{Implementation Challenges}\nopagebreak
+\section{Implementation Challenges}
 
 Key challenges encountered include:
 \begin{enumerate}
@@ -255,7 +280,7 @@ Key challenges encountered include:
     \item \textbf{Comprehensive Metric Tracking}: Accurate tracking of idle cycles, evictions, writebacks, and data traffic required consistent counters across modules without double-counting.
 \end{enumerate}
 
-\section{Conclusion}\nopagebreak
+\section{Conclusion}
 
 Our L1 cache simulator accurately models a quad-core processor with MESI coherence, write-back/write-allocate policy, and LRU eviction. It captures private cache and shared memory interactions, providing cycle-accurate statistics.
 
@@ -268,7 +293,7 @@ Key trends from parameter variation experiments:
 
 These results highlight cache architecture trade-offs and the importance of workload-specific configurations. The simulator enables functional validation and performance exploration in multicore systems.
 
-\section{Repository}\nopagebreak
+\section{Repository}
 Full source code and report: \\
 \url{https://github.com/VanshRamani/CacheSim}
 
