@@ -9,12 +9,13 @@
 Bus::Bus(int blockSize) : 
     busy(false), 
     busyUntilCycle(0), 
-    roundRobinArbiter(0),
+    roundRobinArbiter(0), // This is no longer used for arbitration, but keeping for compatibility
     blockSizeBytes(1 << blockSize),
     totalDataTrafficBytes(0),
     totalBusTransactions(0) {
     DEBUG_PRINT("Bus initialized with block size: " << blockSizeBytes << " bytes");
     DEBUG_PRINT("Memory latency set to: " << memoryLatency << " cycles");
+    DEBUG_PRINT("Using fixed priority arbitration (Core 0 highest, Core 3 lowest)");
 }
 
 void Bus::addCache(Cache* cache) {
@@ -24,9 +25,7 @@ void Bus::addCache(Cache* cache) {
 
 void Bus::pushRequest(int requesterId, BusRequestType type, address_t address, cycle_t currentCycle) {
     // Create a new transaction and add it to the queue
-    // Note: This only enqueues the request - it will be processed in a future cycle
-    // This separation ensures that all cores' actions within a cycle are treated
-    // as if they occurred simultaneously
+    // This should always add to the queue, even if the bus is busy
     BusTransaction transaction;
     transaction.requesterId = requesterId;
     transaction.type = type;
@@ -75,7 +74,7 @@ size_t Bus::findHighestPriorityRequest() const {
         return sameTypeIndices[0];
     }
     
-    // Phase 3: Apply round-robin selection among same-priority requests
+    // Phase 3: Apply fixed priority scheme - lower core ID always gets higher priority
     
     // Store requester IDs and their corresponding queue indices
     std::vector<std::pair<int, size_t>> requesterIndices;
@@ -84,17 +83,10 @@ size_t Bus::findHighestPriorityRequest() const {
         requesterIndices.push_back({requestQueue[queueIdx].requesterId, queueIdx});
     }
     
-    // Sort by requester ID for deterministic selection
+    // Sort by requester ID to get the lowest core ID (highest priority)
     std::sort(requesterIndices.begin(), requesterIndices.end());
     
-    // Find the first requester with ID >= roundRobinArbiter
-    for (const auto& pair : requesterIndices) {
-        if (pair.first >= roundRobinArbiter) {
-            return pair.second;
-        }
-    }
-    
-    // If we get here, wrap around to the lowest ID
+    // Return the index of the request from the core with the lowest ID
     return requesterIndices[0].second;
 }
 
@@ -110,10 +102,6 @@ void Bus::tick(cycle_t currentCycle) {
         // Current transaction is complete
         notifyRequester(currentCycle, currentTransaction);
         busy = false;
-        
-        // Update round robin arbiter position after completing a transaction
-        // This ensures fair scheduling for future requests
-        roundRobinArbiter = (currentTransaction.requesterId + 1) % caches.size();
     }
     
     // If bus is free and there are pending requests, start a new transaction
@@ -137,17 +125,25 @@ void Bus::tick(cycle_t currentCycle) {
         // Set bus state
         busy = true;
         busyUntilCycle = completionCycle;
-        totalBusTransactions++;
+        // Only count non-WriteBack operations as bus transactions
+        if (currentTransaction.type != BusRequestType::WriteBack) {
+            totalBusTransactions++;
+        }
         
         // Update data traffic statistics
-        // A bus transaction carries data in the following cases:
-        // 1. BusRd or BusRdX that is served by cache (cache-to-cache transfer)
-        // 2. BusRd or BusRdX that is served by memory (memory-to-cache transfer)
-        // 3. WriteBack (cache-to-memory transfer)
-        if (currentTransaction.type == BusRequestType::BusRd || 
+        // All transactions that involve data transfers should be counted:
+        // 1. BusRd: Data transfer from memory or another cache
+        // 2. BusRdX: Data transfer from memory or another cache 
+        // 3. WriteBack: Data transfer from cache to memory
+        if (currentTransaction.type == BusRequestType::BusRd ||
             currentTransaction.type == BusRequestType::BusRdX ||
             currentTransaction.type == BusRequestType::WriteBack) {
             totalDataTrafficBytes += blockSizeBytes;
+            
+            DEBUG_PRINT("Cycle " << currentCycle << ": Incrementing data traffic by " 
+                        << blockSizeBytes << " bytes for " 
+                        << getBusRequestTypeString(currentTransaction.type)
+                        << ", total now: " << totalDataTrafficBytes << " bytes");
         }
         
         DEBUG_PRINT("Cycle " << currentCycle << ": Bus started transaction for Core " 
@@ -171,7 +167,12 @@ bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction
     for (size_t i = 0; i < caches.size(); i++) {
         if (static_cast<int>(i) != transaction.requesterId) {
             bool responded = caches[i]->snoop(currentCycle, transaction.type, transaction.address);
-            if (responded) {
+            
+            // Set suppliedByCache to true for:
+            // 1. BusRd requests when another cache supplies the data (from M, E, or potentially S)
+            // 2. BusRdX requests when another cache has it in M state and supplies the data
+            if (responded && (transaction.type == BusRequestType::BusRd || 
+                            transaction.type == BusRequestType::BusRdX)) {
                 suppliedByCache = true;
                 DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << i 
                             << " responded to snoop");
@@ -188,8 +189,7 @@ cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction&
     cycle_t latency = 0;
     
     // Calculate latency based on transaction type and source
-    if (transaction.type == BusRequestType::BusRd || 
-        transaction.type == BusRequestType::BusRdX) {
+    if (transaction.type == BusRequestType::BusRd) {
         if (suppliedByCache) {
             // Cache-to-cache transfer: 2N cycles (N words per block)
             int wordsPerBlock = blockSizeBytes / 4; // 4 bytes per word
@@ -202,10 +202,28 @@ cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction&
             latency = memoryLatency;
             DEBUG_PRINT("Memory access latency: " << latency << " cycles");
         }
+    } else if (transaction.type == BusRequestType::BusRdX) {
+        // For BusRdX, check if data was supplied by another cache (Modified state)
+        if (suppliedByCache) {
+            // Cache-to-cache transfer: 2N cycles (N words per block)
+            int wordsPerBlock = blockSizeBytes / 4; // 4 bytes per word
+            latency = 2 * wordsPerBlock;
+            DEBUG_PRINT("Cache-to-cache transfer latency (BusRdX): " << latency 
+                        << " cycles (block size: " << blockSizeBytes 
+                        << " bytes, " << wordsPerBlock << " words)");
+        } else {
+            // Memory access: 100 cycles
+            latency = memoryLatency;
+            DEBUG_PRINT("Memory access latency (BusRdX): " << latency << " cycles");
+        }
     } else if (transaction.type == BusRequestType::WriteBack) {
         // Writeback to memory: 100 cycles
         latency = memoryLatency;
         DEBUG_PRINT("WriteBack latency: " << latency << " cycles");
+    } else if (transaction.type == BusRequestType::InvalidateSig) {
+        // Invalidation signal: Fixed latency of 10 cycles
+        latency = 10;
+        DEBUG_PRINT("InvalidateSig latency: " << latency << " cycles");
     }
     
     return currentCycle + latency;
@@ -218,10 +236,21 @@ void Bus::notifyRequester(cycle_t currentCycle, const BusTransaction& transactio
         DEBUG_PRINT("Cycle " << currentCycle << ": WriteBack completed for Core " 
                     << transaction.requesterId);
                   
-        // A writeback doesn't invalidate or change the state of the line
-        // The line was already evicted, so we're just notifying that the transaction completed
+        // For a writeback, we set the state to INVALID to indicate this was a writeback completion
+        // This is a convention between the Bus and Cache classes - writebacks don't update any line's state
+        // but we need to distinguish them from other transactions
         caches[transaction.requesterId]->notifyTransactionComplete(
             currentCycle, transaction.address, CacheLineState::INVALID);
+        return;
+    } else if (transaction.type == BusRequestType::InvalidateSig) {
+        // For InvalidateSig, no need to allocate a block or update state
+        // This is a write hit to a shared line, so the state should be modified
+        DEBUG_PRINT("Cycle " << currentCycle << ": InvalidateSig completed for Core "
+                    << transaction.requesterId);
+                    
+        // Set state to MODIFIED since this was a write hit to a shared line
+        caches[transaction.requesterId]->notifyTransactionComplete(
+            currentCycle, transaction.address, CacheLineState::MODIFIED);
         return;
     }
     
@@ -233,18 +262,23 @@ void Bus::notifyRequester(cycle_t currentCycle, const BusTransaction& transactio
         // Otherwise, it goes to Exclusive
         newState = transaction.servedByCache ? 
             CacheLineState::SHARED : CacheLineState::EXCLUSIVE;
+            
+        DEBUG_PRINT("Cycle " << currentCycle << ": BusRd completed for Core " 
+                    << transaction.requesterId << ", served by cache: " 
+                    << (transaction.servedByCache ? "yes" : "no")
+                    << ", new state: " << getCacheLineStateString(newState));
     } else if (transaction.type == BusRequestType::BusRdX) {
-        // Always goes to Modified
+        // Always goes to Modified for BusRdX, regardless of whether another cache had it
         newState = CacheLineState::MODIFIED;
+        
+        DEBUG_PRINT("Cycle " << currentCycle << ": BusRdX completed for Core " 
+                    << transaction.requesterId 
+                    << ", new state: " << getCacheLineStateString(newState));
     } else {
         std::cerr << "ERROR: Invalid transaction type in notifyRequester: " 
                   << static_cast<int>(transaction.type) << std::endl;
         return;
     }
-    
-    DEBUG_PRINT("Cycle " << currentCycle << ": Notifying Core " 
-                << transaction.requesterId << " that transaction is complete, "
-                << "new state: " << getCacheLineStateString(newState));
     
     // Notify the requesting cache
     caches[transaction.requesterId]->notifyTransactionComplete(
@@ -269,6 +303,7 @@ std::string Bus::getBusRequestTypeString(BusRequestType type) const {
         case BusRequestType::BusRd: return "BusRd";
         case BusRequestType::BusRdX: return "BusRdX";
         case BusRequestType::WriteBack: return "WriteBack";
+        case BusRequestType::InvalidateSig: return "InvalidateSig";
         case BusRequestType::None: return "None";
         default: return "Unknown";
     }

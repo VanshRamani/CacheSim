@@ -56,12 +56,15 @@ void Simulator::run() {
     
     DEBUG_PRINT("Starting simulation...");
     
-    // Run until all cores are finished
-    while (!checkFinished()) {
+    // Define a maximum cycle count to prevent infinite loops
+    const cycle_t MAX_CYCLES = 20000000; // 20 million cycles maximum
+    
+    // Run until all cores are finished or max cycles reached
+    while (!checkFinished() && currentCycle < MAX_CYCLES) {
         tick();
         
-        // Print debug info every 1000 cycles
-        if (debugEnabled && currentCycle % 1000 == 0) {
+        // Print debug info every 10000 cycles when debugging is enabled
+        if (debugEnabled && currentCycle % 10000 == 0) {
             std::cout << "DEBUG: Cycle " << currentCycle << ": ";
             for (int i = 0; i < numCores; i++) {
                 std::cout << "Core " << i << " " 
@@ -71,6 +74,12 @@ void Simulator::run() {
             }
             std::cout << "Bus queue size: " << bus.getQueueSize() << std::endl;
         }
+    }
+    
+    if (currentCycle >= MAX_CYCLES) {
+        std::cout << "WARNING: Simulation stopped after reaching maximum cycle count (" 
+                  << MAX_CYCLES << "). This may indicate that some cores didn't finish their traces. "
+                  << "Consider using fewer traces or increasing the maximum cycle count." << std::endl;
     }
     
     DEBUG_PRINT("Simulation completed at cycle " << currentCycle);
@@ -162,7 +171,7 @@ void Simulator::printStats(const std::string& outfile) {
     *out << "MESI Protocol: Enabled" << std::endl;
     *out << "Write Policy: Write-back, Write-allocate" << std::endl;
     *out << "Replacement Policy: LRU (invalid lines replaced first)" << std::endl;
-    *out << "Bus Arbitration: Priority-based with Round-Robin (BusRdX > BusRd > WriteBack)" << std::endl;
+    *out << "Bus Arbitration: Fixed Priority (Core 0 highest, Core 3 lowest) with Transaction Priority (BusRdX > BusRd > WriteBack)" << std::endl;
     *out << "Memory Latency: 100 cycles" << std::endl;
     *out << std::endl;
     
@@ -191,6 +200,38 @@ void Simulator::printStats(const std::string& outfile) {
     *out << "Overall Bus Summary:" << std::endl;
     *out << "Total Bus Transactions: " << bus.getTotalBusTransactions() << std::endl;
     *out << "Total Bus Traffic (Bytes): " << bus.getTotalDataTrafficBytes() << std::endl;
+    
+    // If debug mode is enabled, print additional debug information 
+    // about high invalidation addresses for Core 2
+    if (debugEnabled) {
+        *out << std::endl << "===== DEBUG INFORMATION =====" << std::endl;
+        *out << "Core 2 has " << caches[2].getInvalidationsReceived() << " invalidations." << std::endl;
+        
+        // If Core 2 has significantly more invalidations, it suggests possible false sharing
+        if (caches[2].getInvalidationsReceived() > 1000) {
+            *out << "High invalidation count detected for Core 2!" << std::endl;
+            *out << "This is likely due to false sharing between Core 2 and other cores." << std::endl;
+            *out << "Consider padding data structures to avoid false sharing." << std::endl;
+        }
+        
+        // Calculate average invalidations per core
+        uint64_t totalInvalidations = 0;
+        for (int i = 0; i < numCores; i++) {
+            totalInvalidations += caches[i].getInvalidationsReceived();
+        }
+        double avgInvalidations = totalInvalidations / static_cast<double>(numCores);
+        
+        *out << "Average invalidations per core: " << avgInvalidations << std::endl;
+        
+        // If Core 2 has more than 3x the average, it's definitely anomalous
+        if (caches[2].getInvalidationsReceived() > 3 * avgInvalidations) {
+            *out << "Core 2 invalidations are " 
+                 << (caches[2].getInvalidationsReceived() / avgInvalidations) 
+                 << " times the average!" << std::endl;
+        }
+        
+        *out << "===== END DEBUG INFORMATION =====" << std::endl;
+    }
     
     // Close file if opened
     if (fileStream.is_open()) {

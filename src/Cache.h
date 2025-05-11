@@ -112,6 +112,10 @@ private:
         uint64_t invalidationsReceived; // Number of invalidations received from bus
         uint64_t prefetchRequests;
         uint64_t usefulPrefetches;
+        
+        // Debug flag - Count invalidations by address (for troubleshooting bus invalidation issues)
+        bool trackInvalidationAddresses;
+        std::unordered_map<address_t, uint64_t> invalidationsByAddress;
     } stats;
     
     // Address manipulation helpers

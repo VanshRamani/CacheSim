@@ -24,6 +24,7 @@ enum class BusRequestPriority {
 enum class BusRequestType { 
     BusRd = 2,       // Read request, issued on read miss
     BusRdX = 3,      // Read exclusive request, issued on write miss or write to shared line
+    InvalidateSig = 4, // Invalidation signal (replaced WBx)
     WriteBack = 1,   // Writeback request, issued when evicting a modified line
     None = 0         // No request
 };
