@@ -366,13 +366,14 @@ bool Cache::snoop(cycle_t currentCycle, BusRequestType busReq, address_t addr) {
         // Another cache wants exclusive access (BusRdX) or is explicitly invalidating (InvalidateSig)
         if (oldState != CacheLineState::INVALID) {
             // For BusRdX from Modified state, we need to write back data to memory
-            // and send data directly to the requesting cache
+            // instead of sending data directly to the requesting cache
             if (oldState == CacheLineState::MODIFIED && busReq == BusRequestType::BusRdX) {
                 DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
-                          << " invalidating line due to BusRdX (was Modified), writing back data");
+                          << " invalidating line due to BusRdX (was Modified), writing back data to memory");
                 
-                // We respond true to indicate we are supplying the modified data
-                responded = true;
+                // We don't respond with data to the requesting cache for BusRdX
+                // Instead, we just write back to memory
+                responded = false;
             } else {
                 DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << id 
                           << " invalidating line due to " << getBusRequestTypeString(busReq)

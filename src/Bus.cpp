@@ -168,11 +168,9 @@ bool Bus::broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction
         if (static_cast<int>(i) != transaction.requesterId) {
             bool responded = caches[i]->snoop(currentCycle, transaction.type, transaction.address);
             
-            // Set suppliedByCache to true for:
-            // 1. BusRd requests when another cache supplies the data (from M, E, or potentially S)
-            // 2. BusRdX requests when another cache has it in M state and supplies the data
-            if (responded && (transaction.type == BusRequestType::BusRd || 
-                            transaction.type == BusRequestType::BusRdX)) {
+            // Set suppliedByCache to true only for BusRd requests when another cache supplies the data
+            // BusRdX should not get data directly from other caches
+            if (responded && transaction.type == BusRequestType::BusRd) {
                 suppliedByCache = true;
                 DEBUG_PRINT("Cycle " << currentCycle << ": Cache " << i 
                             << " responded to snoop");
@@ -203,19 +201,10 @@ cycle_t Bus::calculateCompletionTime(cycle_t currentCycle, const BusTransaction&
             DEBUG_PRINT("Memory access latency: " << latency << " cycles");
         }
     } else if (transaction.type == BusRequestType::BusRdX) {
-        // For BusRdX, check if data was supplied by another cache (Modified state)
-        if (suppliedByCache) {
-            // Cache-to-cache transfer: 2N cycles (N words per block)
-            int wordsPerBlock = blockSizeBytes / 4; // 4 bytes per word
-            latency = 2 * wordsPerBlock;
-            DEBUG_PRINT("Cache-to-cache transfer latency (BusRdX): " << latency 
-                        << " cycles (block size: " << blockSizeBytes 
-                        << " bytes, " << wordsPerBlock << " words)");
-        } else {
-            // Memory access: 100 cycles
-            latency = memoryLatency;
-            DEBUG_PRINT("Memory access latency (BusRdX): " << latency << " cycles");
-        }
+        // For BusRdX, always go to memory regardless of whether another cache had it
+        // This enforces the protocol rule that write misses always go to memory
+        latency = memoryLatency;
+        DEBUG_PRINT("Memory access latency (BusRdX): " << latency << " cycles");
     } else if (transaction.type == BusRequestType::WriteBack) {
         // Writeback to memory: 100 cycles
         latency = memoryLatency;
