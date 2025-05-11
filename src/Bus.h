@@ -21,11 +21,6 @@ private:
         cycle_t completionCycle;       // Cycle when transaction will complete
         bool dataReady;                // Is data ready for the requester?
         bool servedByCache;            // Was this request served by another cache?
-        bool hadModifiedWriteback;     // Did this transaction cause a modified writeback?
-        
-        BusTransaction() : requesterId(-1), type(BusRequestType::BusRd),
-                        address(0), startCycle(0), completionCycle(0),
-                        dataReady(false), servedByCache(false), hadModifiedWriteback(false) {}
     };
 
     std::vector<Cache*> caches;        // Connected caches
@@ -45,8 +40,8 @@ private:
     uint64_t totalBusTransactions;     // Total number of bus transactions
     
     // Helper methods
-    bool broadcastSnoop(cycle_t currentCycle, BusTransaction& transaction);
-    cycle_t calculateCompletionTime(cycle_t currentCycle, BusTransaction& transaction, bool suppliedByCache);
+    bool broadcastSnoop(cycle_t currentCycle, const BusTransaction& transaction);
+    cycle_t calculateCompletionTime(cycle_t currentCycle, const BusTransaction& transaction, bool suppliedByCache);
     void notifyRequester(cycle_t currentCycle, const BusTransaction& transaction);
 
     size_t findHighestPriorityRequest() const; // Find the highest priority request in the queue
