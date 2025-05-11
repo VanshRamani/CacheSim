@@ -1,0 +1,69 @@
+Simulation Parameters:
+Trace Prefix: demo/split_add/split_add
+Set Index Bits: 7
+Associativity: 4
+Block Bits: 4
+Block Size (Bytes): 16
+Number of Sets: 128
+Cache Size (KB per core): 8
+MESI Protocol: Enabled
+Write Policy: Write-back, Write-allocate
+Replacement Policy: LRU (invalid lines replaced first)
+Bus Arbitration: Fixed Priority (Core 0 highest, Core 3 lowest) with Transaction Priority (BusRdX > BusRd > WriteBack)
+Memory Latency: 100 cycles
+
+Core 0 Statistics:
+Total Instructions: 60
+Total Reads: 40
+Total Writes: 20
+Total Execution Cycles: 3146
+Idle Cycles: 2866
+Cache Misses: 15
+Cache Miss Rate: 25.00%
+Cache Evictions: 0
+Writebacks: 0
+Bus Invalidations: 0
+Data Traffic (Bytes): 960
+
+Core 1 Statistics:
+Total Instructions: 60
+Total Reads: 40
+Total Writes: 20
+Total Execution Cycles: 3046
+Idle Cycles: 2966
+Cache Misses: 15
+Cache Miss Rate: 25.00%
+Cache Evictions: 0
+Writebacks: 0
+Bus Invalidations: 0
+Data Traffic (Bytes): 960
+
+Core 2 Statistics:
+Total Instructions: 60
+Total Reads: 40
+Total Writes: 20
+Total Execution Cycles: 146
+Idle Cycles: 5866
+Cache Misses: 15
+Cache Miss Rate: 25.00%
+Cache Evictions: 0
+Writebacks: 0
+Bus Invalidations: 0
+Data Traffic (Bytes): 960
+
+Core 3 Statistics:
+Total Instructions: 60
+Total Reads: 40
+Total Writes: 20
+Total Execution Cycles: 46
+Idle Cycles: 5966
+Cache Misses: 15
+Cache Miss Rate: 25.00%
+Cache Evictions: 0
+Writebacks: 0
+Bus Invalidations: 0
+Data Traffic (Bytes): 960
+
+Overall Bus Summary:
+Total Bus Transactions: 60
+Total Bus Traffic (Bytes): 960
